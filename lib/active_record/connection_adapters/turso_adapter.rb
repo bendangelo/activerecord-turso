@@ -11,6 +11,8 @@ require "active_record/connection_adapters/sqlite3/schema_definitions"
 require "active_record/connection_adapters/sqlite3/schema_dumper"
 require "active_record/connection_adapters/sqlite3/schema_statements"
 
+AR_8_1 = Gem::Version.new(ActiveRecord::VERSION::STRING) >= Gem::Version.new("8.1.0")
+
 module ActiveRecord
   module ConnectionAdapters
     class TursoAdapter < AbstractAdapter
