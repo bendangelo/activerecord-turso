@@ -60,14 +60,15 @@ module ActiveRecord
       }.freeze
 
       class StatementPool < ConnectionAdapters::StatementPool
-        def initialize(connection, max = 1000)
-          @connection = connection
-          @max = max
+        def initialize(*args)
+          # AR 8.0: StatementPool.new(connection, limit)
+          # AR 8.1: StatementPool.new(limit)
+          super(args.last)
         end
 
-        def [](sql); nil; end
-        def []=(sql, stmt); end
-        def key?(sql); false; end
+        def [](_sql); nil; end
+        def []=(_sql, _stmt); end
+        def key?(_sql); false; end
         def clear; end
         def reset; end
       end
@@ -174,7 +175,12 @@ module ActiveRecord
       end
 
       def build_statement_pool
-        StatementPool.new(self)
+        limit = self.class.type_cast_config_to_integer(@config[:statement_limit])
+        if AR_8_1
+          StatementPool.new(limit)
+        else
+          StatementPool.new(self, limit)
+        end
       end
 
       def connect

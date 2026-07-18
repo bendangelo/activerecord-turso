@@ -45,6 +45,15 @@ class TestAdapter < Minitest::Test
     adapter&.disconnect!
   end
 
+  def test_statement_pool_can_be_built
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    pool = adapter.send(:build_statement_pool)
+    assert_kind_of ActiveRecord::ConnectionAdapters::StatementPool, pool
+    assert_nil pool["SELECT 1"]
+  ensure
+    adapter&.disconnect!
+  end
+
   def test_binds_are_cast
     adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
     adapter.execute("CREATE TABLE users (name TEXT, active INTEGER)")
