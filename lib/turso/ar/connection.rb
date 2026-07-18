@@ -21,6 +21,10 @@ module Turso
         @db.query(sql, normalize_binds(binds)).to_a
       end
 
+      def execute_batch(sql)
+        @db.execute_batch(sql)
+      end
+
       def close
         @db.close
       end
@@ -31,6 +35,10 @@ module Turso
 
       def changes
         query("SELECT changes()").first&.values&.first.to_i
+      end
+
+      def total_changes
+        @db.total_changes
       end
 
       def last_insert_rowid

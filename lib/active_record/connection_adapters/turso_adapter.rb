@@ -199,9 +199,7 @@ module ActiveRecord
 
       def perform_query(raw_connection, sql, binds, type_casted_binds, prepare:, notification_payload:, batch: false)
         if batch
-          sql.split(/;\s*$/).each do |stmt|
-            raw_connection.execute(stmt) unless stmt.strip.empty?
-          end
+          raw_connection.execute_batch(sql)
           return ActiveRecord::Result.empty(affected_rows: 0)
         end
 
@@ -221,6 +219,21 @@ module ActiveRecord
           notification_payload[:affected_rows] = affected_rows
           notification_payload[:row_count] = rows.length
           ActiveRecord::Result.new(columns, rows, nil, affected_rows: affected_rows)
+        end
+      end
+
+      unless AR_8_1
+        def exec_query(sql, name = "SQL", binds = [], prepare: false)
+          type_casted_binds = type_casted_binds(binds)
+          result = @raw_connection.query(sql, type_casted_binds)
+          columns = result.first&.keys || []
+          rows = result.map(&:values)
+          ActiveRecord::Result.new(columns, rows)
+        end
+
+        def execute(sql, name = nil)
+          @raw_connection.execute(sql)
+          nil
         end
       end
 
