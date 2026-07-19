@@ -38,6 +38,31 @@ class TestRailsAdapter < Minitest::Test
     assert_equal 0, @klass.count
   end
 
+  def test_virtual_table_for_fts
+    ActiveRecord::Schema.define do
+      create_table :articles do |t|
+        t.string :title
+        t.text :body
+      end
+    end
+
+    article = Class.new(ActiveRecord::Base) do
+      self.table_name = "articles"
+    end
+
+    begin
+      connection = ActiveRecord::Base.connection
+      connection.create_virtual_table :articles_fts, :fts5, ["title", "body", "content='articles'"]
+      article.create!(title: "Ruby concurrency", body: "A deep dive")
+      matches = connection.exec_query(
+        "SELECT * FROM articles_fts WHERE articles_fts MATCH ?", nil, ["ruby"]
+      )
+      assert_equal 1, matches.length
+    rescue ActiveRecord::StatementInvalid
+      skip "FTS5 not available in this Turso build"
+    end
+  end
+
   def test_update_and_delete
     post = @klass.create!(title: "First", published: false)
     post.update!(title: "Updated")

@@ -196,6 +196,28 @@ module ActiveRecord
         end
       end
 
+      VIRTUAL_TABLE_REGEX = /USING\s+(\w+)\s*\((.*)\)/i
+
+      def virtual_tables
+        query = <<~SQL
+          SELECT name, sql FROM sqlite_master WHERE sql LIKE 'CREATE VIRTUAL %';
+        SQL
+
+        exec_query(query, "SCHEMA").cast_values.each_with_object({}) do |row, memo|
+          table_name, sql = row[0], row[1]
+          _, module_name, arguments = sql.match(VIRTUAL_TABLE_REGEX).to_a
+          memo[table_name] = [module_name, arguments]
+        end.to_a
+      end
+
+      def create_virtual_table(table_name, module_name, values)
+        exec_query "CREATE VIRTUAL TABLE IF NOT EXISTS #{table_name} USING #{module_name} (#{values.join(", ")})"
+      end
+
+      def drop_virtual_table(table_name, module_name, values, **options)
+        drop_table(table_name)
+      end
+
       def supports_ddl_transactions? = true
       def supports_savepoints? = true
       def supports_transaction_isolation? = false
