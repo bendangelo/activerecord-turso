@@ -71,6 +71,7 @@ module ActiveRecord
       def initialize_type_map(m)
         super
         m.register_type(%r(boolean)i, Type::Boolean.new)
+        m.register_type(%r(json)i, Type::Json.new)
       end
     end
   end

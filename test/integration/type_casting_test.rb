@@ -14,10 +14,10 @@ class TestTypeCasting < Minitest::Test
         integer_col INTEGER,
         real_col REAL,
         decimal_col NUMERIC,
-        boolean_col INTEGER,
+        boolean_col BOOLEAN,
         datetime_col TEXT,
         date_col TEXT,
-        json_col TEXT,
+        json_col JSON,
         blob_col BLOB
       )
     SQL
@@ -39,13 +39,11 @@ class TestTypeCasting < Minitest::Test
   end
 
   def test_boolean_roundtrip
-    skip "Turso stores booleans as integers; AR type mapping returns 1 not true"
     record = TypeCastingRecord.create!(boolean_col: true)
     assert_equal true, record.reload.boolean_col
   end
 
   def test_json_roundtrip
-    skip "Turso stores hashes as string representations; needs JSON serialization"
     payload = { "a" => 1, "b" => "two" }
     record = TypeCastingRecord.create!(json_col: payload)
     assert_equal payload, record.reload.json_col
