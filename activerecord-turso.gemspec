@@ -10,4 +10,6 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.0.0"
   spec.add_dependency "activerecord", ">= 8.0", "< 8.2"
   spec.add_dependency "turso", "~> 0.1"
+
+  spec.add_development_dependency "irb"
 end

@@ -1,23 +1,23 @@
-# activerecord-turso
+# Activerecord-turso
 
-ActiveRecord adapter for [Turso](https://turso.tech) (SQLite compatible).
+ActiveRecord adapter for [Turso](https://turso.tech) (SQLite compatible db).
 
 ## Status
 
-This adapter is under active development. It can run basic ActiveRecord operations against Turso today, but several production features are still being hardened. See [Limitations and Risks](#limitations-and-risks) before using it in production.
+This adapter is under **active** development. It can run basic ActiveRecord operations against Turso today, but several production features are still being hardened. See [Limitations and Risks](#limitations-and-risks) before using it in production.
 
 ## Requirements
 
 - Ruby >= 3.0
 - ActiveRecord >= 8.0, < 8.2
-- The `turso` Ruby gem (local bindings at `~/Projects/turso/bindings/ruby` during development)
+- The `turso` Ruby gem
 
 ## Installation
 
 Add to your Gemfile:
 
 ```ruby
-gem "activerecord-turso", path: "~/Projects/activerecord-turso"
+gem "activerecord-turso"
 ```
 
 Then configure `database.yml`:
@@ -175,7 +175,7 @@ bundle install
 bundle exec rake test
 ```
 
-To run against the official Rails Active Record test suite, see the CI workflow in `.github/workflows/test.yml` and the project design doc in `docs/superpowers/specs/`.
+To run against the official Rails Active Record test suite, see the CI workflow in `.github/workflows/test.yml`.
 
 ## License
 
