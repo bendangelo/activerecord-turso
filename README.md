@@ -76,31 +76,63 @@ development:
 - `lock!`, `with_lock`, and `lock_version` are not meaningful under MVCC. Do not use them inside concurrent transactions.
 - If the retry limit is exhausted, the conflict is raised as `ActiveRecord::StatementInvalid`. You must handle it in application code.
 
-### Full-Text Search (Tantivy)
+### Full-text search (Tantivy)
 
-Turso exposes Tantivy through SQL virtual tables. Use the adapter helpers in a migration:
+Turso provides full-text search through Tantivy. Use `CREATE INDEX ... USING fts`:
+
+```sql
+CREATE INDEX fts_posts ON posts USING fts (title, body);
+```
+
+From migrations:
 
 ```ruby
-class CreateArticlesFts < ActiveRecord::Migration[8.0]
+class AddFtsToPosts < ActiveRecord::Migration[8.1]
   def change
-    create_virtual_table :articles_fts, :fts5, ["title", "body", "content='articles'"]
+    add_fts_index :posts, [:title, :body], tokenizer: :default
   end
 end
 ```
 
-Query with `MATCH`:
+Query with Tantivy functions:
+
+```sql
+SELECT * FROM posts WHERE fts_match(title, body, 'database');
+```
+
+Note: `fts5` virtual tables are not supported. Use `USING fts` indexes instead.
+
+### Concurrent transactions
+
+Turso supports multi-writer concurrency with MVCC. Enable it in `database.yml`:
+
+```yaml
+development:
+  adapter: turso
+  database: db/dev.sqlite3
+  journal_mode: mvcc
+  busy_timeout: 5000
+```
+
+Use `concurrent: true` inside the same pinned connection:
 
 ```ruby
-Article.where("articles_fts MATCH ?", "ruby concurrency")
+ActiveRecord::Base.connection.transaction(concurrent: true) do
+  # read-modify-write
+end
 ```
+
+Caveats:
+- The connection must stay checked out for the whole transaction; avoid work that yields the ActiveRecord connection back to the pool.
+- `busy_timeout` is used for lock waits, not MVCC snapshot conflicts. Snapshot conflicts retry with bounded backoff.
 
 ## Limitations and Risks
 
 The following limitations apply to the current implementation. Read this section carefully before deploying to production.
 
-### 1. Result type metadata is limited
+### 1. Result type metadata uses column declared types
 
-The `turso` Ruby bindings do not yet expose SQLite column type information for query results. The adapter builds `ActiveRecord::Result` objects without a column type map, so AR falls back to generic type casting. Most common types work correctly, but edge cases may cast differently than the upstream SQLite3 adapter.
+The adapter builds column type maps from `column_decltype` metadata. This works for most column definitions but may not capture type information for computed expressions or subquery columns.
 
 ### 2. Batch SQL execution uses a simple string splitter
 
