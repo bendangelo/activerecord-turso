@@ -42,9 +42,8 @@ module Turso
       end
 
       def execute_batch(sql)
-        sql.split(";").each do |stmt|
-          s = stmt.strip
-          @db.execute(s) unless s.empty?
+        split_batch(sql).each do |stmt|
+          @db.execute(stmt)
         end
       end
 
@@ -65,6 +64,84 @@ module Turso
       end
 
       private
+
+      def split_batch(sql)
+        statements = []
+        current = +""
+        in_string = false
+        in_line_comment = false
+        in_block_comment = false
+        i = 0
+        while i < sql.length
+          char = sql[i]
+          next_char = sql[i + 1]
+
+          if in_line_comment
+            if char == "\n"
+              in_line_comment = false
+            end
+            i += 1
+            next
+          end
+
+          if in_block_comment
+            if char == "*" && next_char == "/"
+              in_block_comment = false
+              i += 2
+            else
+              i += 1
+            end
+            next
+          end
+
+          if in_string
+            if char == "'" && next_char == "'"
+              current << char << next_char
+              i += 2
+              next
+            elsif char == "'"
+              in_string = false
+              current << char
+              i += 1
+              next
+            end
+            current << char
+            i += 1
+            next
+          end
+
+          case char
+          when "'"
+            in_string = true
+            current << char
+          when "-"
+            if next_char == "-"
+              in_line_comment = true
+              i += 2
+              next
+            end
+            current << char
+          when "/"
+            if next_char == "*"
+              in_block_comment = true
+              i += 2
+              next
+            end
+            current << char
+          when ";"
+            stmt = current.strip
+            statements << stmt unless stmt.empty?
+            current = +""
+          else
+            current << char
+          end
+          i += 1
+        end
+
+        stmt = current.strip
+        statements << stmt unless stmt.empty?
+        statements
+      end
 
       def normalize_binds(binds)
         binds.map do |value|

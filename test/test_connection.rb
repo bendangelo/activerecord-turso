@@ -37,6 +37,16 @@ class TestConnection < Minitest::Test
     assert_equal ["Alice", "Bob"], rows.map { |r| r["name"] }
   end
 
+  def test_execute_batch_with_semicolon_in_string
+    conn = Turso::AR::Connection.new(database: ":memory:")
+    conn.execute_batch(<<~SQL)
+      CREATE TABLE users (name TEXT);
+      INSERT INTO users (name) VALUES ('a;b');
+    SQL
+    rows = conn.query("SELECT name FROM users")
+    assert_equal ["a;b"], rows.map { |r| r["name"] }
+  end
+
   def test_changes_and_total_changes
     conn = Turso::AR::Connection.new(database: ":memory:")
     conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
