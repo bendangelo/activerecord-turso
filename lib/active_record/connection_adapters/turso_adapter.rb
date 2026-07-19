@@ -2,7 +2,9 @@
 
 require "active_record/connection_adapters/sqlite3_adapter"
 
-Dir[File.expand_path("turso_adapter/*.rb", __dir__)].each { |f| require f }
+require_relative "turso_adapter/statement_pool"
+
+Dir[File.expand_path("turso_adapter/*.rb", __dir__)].sort.each { |f| require f }
 
 module ActiveRecord
   module ConnectionAdapters
@@ -41,8 +43,8 @@ module ActiveRecord
         SQLite3::ExplainPrettyPrinter.new.pp(result)
       end
 
-      def default_prepared_statements
-        false
+      def build_statement_pool
+        StatementPool.new(self.class.type_cast_config_to_integer(@config[:statement_limit]))
       end
 
       def database_file_exists?
