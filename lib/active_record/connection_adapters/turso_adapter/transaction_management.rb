@@ -43,6 +43,8 @@ module ActiveRecord
         private
 
         def transaction_with_mvcc(options, &block)
+          connect if @raw_connection.nil?
+
           unless @mvcc_enabled
             raise ActiveRecord::AdapterError,
                   "transaction(concurrent: true) requires journal_mode: 'mvcc' in database.yml"
@@ -63,6 +65,7 @@ module ActiveRecord
               raise unless concurrent_conflict?(e) && retries < max_retries
 
               retries += 1
+              verified!
               sleep(base_delay_ms * retries / 1000.0)
             end
           end

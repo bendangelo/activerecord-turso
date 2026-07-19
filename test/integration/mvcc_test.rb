@@ -33,4 +33,20 @@ class TestMvcc < Minitest::Test
     final = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
     assert_equal 1, final.to_i
   end
+
+  def test_concurrent_updates_no_lost_updates
+    threads = 5.times.map do
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do |conn|
+          conn.transaction(concurrent: true) do
+            value = conn.query_value("SELECT value FROM mvcc_counters WHERE id = 1").to_i
+            conn.execute("UPDATE mvcc_counters SET value = #{value + 1} WHERE id = 1")
+          end
+        end
+      end
+    end
+    threads.each(&:join)
+    final = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1").to_i
+    assert_equal 5, final
+  end
 end
