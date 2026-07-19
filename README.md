@@ -100,7 +100,14 @@ Query with Tantivy functions:
 SELECT * FROM posts WHERE fts_match(title, body, 'database');
 ```
 
-Note: `fts5` virtual tables are not supported. Use `USING fts` indexes instead.
+Note: `fts5` virtual tables are not supported. Use `USING fts` indexes instead. This requires the `index_method` experimental feature:
+
+```yaml
+production:
+  adapter: turso
+  database: db/production.sqlite3
+  experimental_features: "index_method"
+```
 
 ### Concurrent transactions
 
@@ -112,6 +119,10 @@ development:
   database: db/dev.sqlite3
   journal_mode: mvcc
   busy_timeout: 5000
+
+  # Enable experimental Turso features when needed (e.g., custom index methods for FTS).
+  # Pass a comma-separated string or an array of feature names.
+  experimental_features: "index_method"
 ```
 
 Use `concurrent: true` inside the same pinned connection:

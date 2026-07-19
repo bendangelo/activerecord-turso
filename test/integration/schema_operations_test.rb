@@ -35,7 +35,6 @@ class TestSchemaOperations < Minitest::Test
   end
 
   def test_add_fts_index_helper
-    skip "FTS index method is experimental in this Turso build"
     ActiveRecord::Schema.define do
       create_table :searchable_posts, force: true do |t|
         t.string :title
@@ -48,5 +47,7 @@ class TestSchemaOperations < Minitest::Test
 
     indexes = conn.fts_indexes(:searchable_posts)
     assert_includes indexes, "fts_searchable_posts_title_body"
+  rescue ActiveRecord::StatementInvalid => e
+    skip "FTS requires experimental_features: ['index_method'] in database.yml: #{e.message}"
   end
 end

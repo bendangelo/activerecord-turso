@@ -30,8 +30,14 @@ module ActiveRecordTursoTest
       timeout: 5000,
       journal_mode: journal_mode,
       busy_timeout: 5000,
-      query_timeout: 30_000
+      query_timeout: 30_000,
+      experimental_features: experimental_features
     }
+  end
+
+  def self.experimental_features
+    features = ENV.fetch("TURSO_TEST_EXPERIMENTAL_FEATURES", "")
+    features.split(",").map(&:strip).reject(&:empty?)
   end
 end
 

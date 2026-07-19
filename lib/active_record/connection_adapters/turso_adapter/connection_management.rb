@@ -9,10 +9,11 @@ module ActiveRecord
         end
 
         module ClassMethods
-          def new_client(config)
-            db_config = config.symbolize_keys.merge(:timeout => config[:timeout] || 5000)
-            ::Turso::AR::Connection.new(db_config)
-          end
+        def new_client(config)
+          db_config = config.symbolize_keys.merge(:timeout => config[:timeout] || 5000)
+          db_config[:experimental_features] = Array(db_config[:experimental_features])
+          ::Turso::AR::Connection.new(db_config)
+        end
         end
 
         def active?

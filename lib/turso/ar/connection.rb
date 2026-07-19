@@ -11,9 +11,12 @@ module Turso
 
       def initialize(config)
         @config = config
-        @db = ::Turso::DB.new(config[:database].to_s,
+        db_opts = {
           busy_timeout: config[:busy_timeout] || config[:timeout],
-          query_timeout: config[:query_timeout])
+          query_timeout: config[:query_timeout]
+        }
+        db_opts[:experimental_features] = config[:experimental_features] if config[:experimental_features]
+        @db = ::Turso::DB.new(config[:database].to_s, **db_opts)
       end
 
       def last_insert_rowid
@@ -48,7 +51,7 @@ module Turso
       end
 
       def prepare(sql)
-        @db.instance_variable_get(:@database).connection.prepare(sql)
+        @db.prepare(sql)
       end
 
       def busy_timeout=(ms)

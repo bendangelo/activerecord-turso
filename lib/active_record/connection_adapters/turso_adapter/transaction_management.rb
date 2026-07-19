@@ -53,28 +53,47 @@ module ActiveRecord
           max_retries = @config.fetch(:concurrent_retry_limit, 50)
           base_delay_ms = @config.fetch(:concurrent_retry_base_ms, 2)
           retries = 0
+          pinned_connection_id = @raw_connection.object_id
 
           loop do
             begin
-              raw_execute("BEGIN CONCURRENT", "TRANSACTION")
-              yield
-              raw_execute("COMMIT", "TRANSACTION")
-              return
+              @raw_connection.execute("BEGIN CONCURRENT")
+              result = yield
+              @raw_connection.execute("COMMIT")
+              return result
             rescue ActiveRecord::StatementInvalid => e
-              raw_execute("ROLLBACK", "TRANSACTION") rescue nil
+              rollback_if_active
               raise unless concurrent_conflict?(e) && retries < max_retries
 
               retries += 1
               verified!
-              sleep(base_delay_ms * retries / 1000.0)
+              backoff(base_delay_ms, retries)
+
+              unless @raw_connection.object_id == pinned_connection_id
+                raise ActiveRecord::AdapterError,
+                      "MVCC retry detected a different database connection. " \
+                      "transaction(concurrent: true) must run on a pinned connection."
+              end
             end
           end
         end
 
         def concurrent_conflict?(exception)
-          exception.cause.is_a?(::Turso::BusySnapshotError) ||
-            exception.cause.is_a?(::Turso::BusyError) ||
+          cause = exception.cause
+          conflict_classes = [::Turso::BusySnapshotError, ::Turso::BusyError]
+          conflict_classes << ::Turso::WriteWriteConflict if defined?(::Turso::WriteWriteConflict)
+
+          conflict_classes.any? { |klass| cause.is_a?(klass) } ||
             /snapshot conflict|busy snapshot|database is locked/i.match?(exception.message)
+        end
+
+        def rollback_if_active
+          return unless @raw_connection && !@raw_connection.closed?
+          @raw_connection.execute("ROLLBACK") rescue nil
+        end
+
+        def backoff(base_delay_ms, retries)
+          sleep(base_delay_ms * retries / 1000.0)
         end
 
         def savepoint_name(name)
