@@ -23,6 +23,15 @@ class TestRailsAdapter < Minitest::Test
     end
   end
 
+  def supports_begin_concurrent?
+    ActiveRecord::Base.connection.execute("BEGIN CONCURRENT")
+    ActiveRecord::Base.connection.execute("ROLLBACK")
+    true
+  rescue
+    ActiveRecord::Base.connection.execute("ROLLBACK") rescue nil
+    false
+  end
+
   def test_create_and_find
     post = @klass.create!(title: "Hello", body: "World", published: true)
     found = @klass.find(post.id)
@@ -61,6 +70,28 @@ class TestRailsAdapter < Minitest::Test
     rescue ActiveRecord::StatementInvalid
       skip "FTS5 not available in this Turso build"
     end
+  end
+
+  def test_concurrent_transaction_commits
+    unless supports_begin_concurrent?
+      skip "BEGIN CONCURRENT not available in this Turso build"
+    end
+    @klass.create!(title: "Before")
+    ActiveRecord::Base.transaction(concurrent: true) do
+      @klass.create!(title: "Inside")
+    end
+    assert_equal 2, @klass.count
+  end
+
+  def test_concurrent_transaction_rolls_back
+    unless supports_begin_concurrent?
+      skip "BEGIN CONCURRENT not available in this Turso build"
+    end
+    ActiveRecord::Base.transaction(concurrent: true) do
+      @klass.create!(title: "Inside")
+      raise ActiveRecord::Rollback
+    end
+    assert_equal 0, @klass.count
   end
 
   def test_update_and_delete

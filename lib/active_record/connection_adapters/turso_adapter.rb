@@ -261,6 +261,52 @@ module ActiveRecord
       def supports_lazy_transactions? = true
       def supports_deferrable_constraints? = true
 
+      def transaction(requires_new: nil, isolation: nil, joinable: true, **options, &block)
+        if options[:concurrent]
+          transaction_with_mvcc(options, &block)
+        else
+          super
+        end
+      end
+
+      private
+
+      def transaction_with_mvcc(options, &block)
+        max_retries = mvcc_max_retries(options)
+        base_delay_ms = mvcc_base_delay_ms(options)
+        retries = 0
+
+        loop do
+          begin
+            raw_execute("BEGIN CONCURRENT", "TRANSACTION")
+            yield
+            raw_execute("COMMIT", "TRANSACTION")
+            return
+          rescue ActiveRecord::StatementInvalid => e
+            raw_execute("ROLLBACK", "TRANSACTION") rescue nil
+            raise unless concurrent_conflict?(e) && retries < max_retries
+
+            retries += 1
+            sleep(base_delay_ms * retries / 1000.0)
+          end
+        end
+      end
+
+      def concurrent_conflict?(exception)
+        exception.message.match?(/snapshot conflict|busy snapshot/i) ||
+          exception.cause.is_a?(Turso::BusySnapshotError)
+      end
+
+      def mvcc_max_retries(_options)
+        @config.fetch(:turso_mvcc_max_retries, 50)
+      end
+
+      def mvcc_base_delay_ms(_options)
+        @config.fetch(:turso_mvcc_base_delay_ms, 10)
+      end
+
+      public
+
       def active?
         if connected?
           verified!
