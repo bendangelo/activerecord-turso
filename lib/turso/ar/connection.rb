@@ -22,7 +22,9 @@ module Turso
       end
 
       def execute_batch(sql)
-        @db.execute_batch(sql)
+        sql.split(";").each do |stmt|
+          @db.execute(stmt.strip) unless stmt.strip.empty?
+        end
       end
 
       def close
@@ -38,7 +40,7 @@ module Turso
       end
 
       def total_changes
-        @db.total_changes
+        query("SELECT total_changes()").first&.values&.first.to_i
       end
 
       def last_insert_rowid
