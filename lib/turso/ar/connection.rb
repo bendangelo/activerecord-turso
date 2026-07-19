@@ -12,6 +12,10 @@ module Turso
         )
       end
 
+      def prepare(sql)
+        raw_connection.prepare(sql)
+      end
+
       def execute(sql, binds = [])
         @db.execute(sql, normalize_binds(binds))
         nil
@@ -33,6 +37,10 @@ module Turso
 
       def closed?
         @db.closed?
+      end
+
+      def open?
+        !@db.closed?
       end
 
       def changes
@@ -58,8 +66,6 @@ module Turso
       def interrupt
         raw_connection.interrupt
       end
-
-      private
 
       def raw_connection
         @db.instance_variable_get(:@database).connection
