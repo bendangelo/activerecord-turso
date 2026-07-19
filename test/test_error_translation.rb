@@ -31,4 +31,11 @@ class TestErrorTranslation < Minitest::Test
     @conn.execute("DROP TABLE IF EXISTS fk_child")
     @conn.execute("DROP TABLE IF EXISTS fk_parent")
   end
+
+  def test_disconnect_idempotent
+    adapter = ActiveRecord::Base.connection
+    adapter.disconnect!
+    adapter.disconnect!
+    refute adapter.active?
+  end
 end

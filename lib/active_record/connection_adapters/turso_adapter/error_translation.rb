@@ -16,6 +16,14 @@ module ActiveRecord
           when ::Turso::BusyError
             ActiveRecord::Deadlocked.new(message, sql: sql, binds: binds)
           when ::Turso::ReadonlyError
+            ActiveRecord::ReadOnlyRecord.new(message, sql: sql, binds: binds)
+          when ::Turso::IoError, ::Turso::CorruptError
+            ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
+          when ::Turso::DatabaseFullError
+            ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
+          when ::Turso::InterruptError
+            ActiveRecord::QueryCanceled.new(message, sql: sql, binds: binds)
+          when ::Turso::MisuseError
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
           else
             super
