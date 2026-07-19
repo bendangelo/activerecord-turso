@@ -70,6 +70,15 @@ class TestAdapter < Minitest::Test
     adapter&.disconnect!
   end
 
+  def test_supports_flags
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    assert adapter.supports_ddl_transactions?
+    assert adapter.supports_savepoints?
+    refute adapter.supports_transaction_isolation?
+  ensure
+    adapter&.disconnect!
+  end
+
   def test_binds_are_cast
     adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
     adapter.execute("CREATE TABLE users (name TEXT, active INTEGER)")

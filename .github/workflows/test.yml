@@ -6,16 +6,55 @@ on:
   pull_request:
 
 jobs:
-  test:
+  local-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         ruby: ["3.2", "3.3", "3.4"]
+        ar: ["~> 8.0.0", "~> 8.1.0"]
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Run tests
+      - name: Set ActiveRecord version
+        run: |
+          bundle remove activerecord --quiet || true
+          bundle add activerecord --version "${{ matrix.ar }}"
+          bundle install
+      - name: Run local tests
         run: bundle exec rake test
+
+  rails-suite:
+    runs-on: ubuntu-latest
+    needs: local-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Clone Rails
+        run: git clone --depth 1 https://github.com/rails/rails.git /tmp/rails
+      - name: Configure Rails test adapter
+        working-directory: /tmp/rails/activerecord
+        run: |
+          cp test/config.example.yml test/config.yml
+          cat >> test/config.yml <<'YAML'
+            turso:
+              arunit:
+                adapter: turso
+                database: ":memory:"
+              arunit2:
+                adapter: turso
+                database: ":memory:"
+          YAML
+          bundle config set without 'db'
+          bundle install
+      - name: Run Rails base test
+        working-directory: /tmp/rails/activerecord
+        run: |
+          ARCONN=turso bundle exec ruby -Itest \
+            -r${{ github.workspace }}/lib/activerecord-turso \
+            test/cases/base_test.rb

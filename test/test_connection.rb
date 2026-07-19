@@ -26,6 +26,26 @@ class TestConnection < Minitest::Test
     assert_equal 1, conn.last_insert_rowid
   end
 
+  def test_execute_batch
+    conn = Turso::AR::Connection.new(database: ":memory:")
+    conn.execute_batch(<<~SQL)
+      CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT);
+      INSERT INTO users (name) VALUES ('Alice');
+      INSERT INTO users (name) VALUES ('Bob');
+    SQL
+    rows = conn.query("SELECT name FROM users ORDER BY name")
+    assert_equal ["Alice", "Bob"], rows.map { |r| r["name"] }
+  end
+
+  def test_changes_and_total_changes
+    conn = Turso::AR::Connection.new(database: ":memory:")
+    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
+    conn.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    conn.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+    assert_equal 1, conn.changes
+    assert_equal 2, conn.total_changes
+  end
+
   def test_boolean_binds_are_normalized
     conn = Turso::AR::Connection.new(database: ":memory:")
     conn.execute("CREATE TABLE users (name TEXT, active INTEGER)")
