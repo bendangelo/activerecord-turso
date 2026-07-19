@@ -54,6 +54,22 @@ class TestAdapter < Minitest::Test
     adapter&.disconnect!
   end
 
+  def test_reset_reconnects
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    adapter.execute("CREATE TABLE users (name TEXT)")
+    adapter.reset!
+    refute adapter.instance_variable_get(:@raw_connection).nil?
+  ensure
+    adapter&.disconnect!
+  end
+
+  def test_check_version_does_not_raise
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    assert adapter.send(:check_version)
+  ensure
+    adapter&.disconnect!
+  end
+
   def test_binds_are_cast
     adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
     adapter.execute("CREATE TABLE users (name TEXT, active INTEGER)")
