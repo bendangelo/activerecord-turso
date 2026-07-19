@@ -38,8 +38,13 @@ end
 ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config)
 
 class Minitest::Test
+  def cleanup_database
+    base = ActiveRecordTursoTest.database_path.sub(/\.sqlite3$/, "")
+    Dir["#{base}*"].each { |f| FileUtils.rm_f(f) }
+  end
+
   def around
-    FileUtils.rm_f(ActiveRecordTursoTest.database_path)
+    cleanup_database
     ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config)
     ActiveRecord::Base.connection_pool.with_connection do |connection|
       connection.execute("PRAGMA foreign_keys = ON")
@@ -47,6 +52,6 @@ class Minitest::Test
     yield
   ensure
     ActiveRecord::Base.connection_pool.disconnect! if ActiveRecord::Base.connection_pool
-    FileUtils.rm_f(ActiveRecordTursoTest.database_path)
+    cleanup_database
   end
 end

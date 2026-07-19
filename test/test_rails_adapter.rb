@@ -102,3 +102,28 @@ class TestRailsAdapter < Minitest::Test
     assert_equal 0, @klass.count
   end
 end
+
+class TestMvccConfiguration < Minitest::Test
+  def test_mvcc_is_disabled_by_default
+    ActiveRecord::Base.establish_connection(
+      ActiveRecordTursoTest.base_config.except(:journal_mode)
+    )
+    adapter = ActiveRecord::Base.connection
+    refute adapter.instance_variable_get(:@mvcc_enabled)
+  ensure
+    ActiveRecord::Base.connection_pool.disconnect! if ActiveRecord::Base.connection_pool
+  end
+
+  def test_mvcc_is_enabled_with_journal_mode_mvcc
+    ActiveRecord::Base.establish_connection(
+      ActiveRecordTursoTest.base_config.merge(journal_mode: "mvcc")
+    )
+    adapter = ActiveRecord::Base.connection
+    adapter.execute("SELECT 1")
+    assert adapter.instance_variable_get(:@mvcc_enabled)
+    mode = adapter.query_value("PRAGMA journal_mode")
+    assert_equal "mvcc", mode.downcase
+  ensure
+    ActiveRecord::Base.connection_pool.disconnect!
+  end
+end
