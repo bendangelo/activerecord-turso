@@ -52,6 +52,26 @@ module ActiveRecord
         json:        { name: "json" }
       }.freeze
 
+      class SQLite3Integer < Type::Integer
+        private
+          def _limit
+            limit || 8
+          end
+      end
+
+      ActiveRecord::Type.register(:integer, SQLite3Integer, adapter: :turso)
+
+      class << self
+        private
+          def initialize_type_map(m)
+            super
+            register_class_with_limit m, %r(int)i, SQLite3Integer
+          end
+      end
+
+      TYPE_MAP = Type::TypeMap.new.tap { |m| initialize_type_map(m) }
+      EXTENDED_TYPE_MAPS = Concurrent::Map.new
+
       DEFAULT_PRAGMAS = {
         "foreign_keys" => true,
         "journal_mode" => :wal,
@@ -229,8 +249,11 @@ module ActiveRecord
       def supports_views? = true
       def supports_json? = true
       def supports_datetime_with_precision? = true
-      def supports_insert_on_conflict? = true
-      def supports_insert_returning? = false
+      def supports_insert_on_conflict? = database_version >= "3.24.0"
+      alias supports_insert_on_duplicate_skip? supports_insert_on_conflict?
+      alias supports_insert_on_duplicate_update? supports_insert_on_conflict?
+      alias supports_insert_conflict_target? supports_insert_on_conflict?
+      def supports_insert_returning? = database_version >= "3.35.0"
       def supports_common_table_expressions? = true
       def supports_concurrent_connections? = !@memory_database
       def supports_index_sort_order? = true
