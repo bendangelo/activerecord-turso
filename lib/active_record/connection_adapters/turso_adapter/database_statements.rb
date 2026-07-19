@@ -94,7 +94,7 @@ module ActiveRecord
             ActiveRecord::Result.empty(affected_rows: affected_rows)
           else
             result = raw_connection.query(sql, type_casted_binds)
-            columns = result.first&.keys || []
+            columns = result.column_names
             rows = result.map(&:values)
             affected_rows = raw_connection.changes
             verified!

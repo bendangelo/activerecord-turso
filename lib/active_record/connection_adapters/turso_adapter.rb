@@ -49,6 +49,13 @@ module ActiveRecord
         File.exist?(@config[:database])
       end
 
+      def connect
+        @raw_connection = self.class.new_client(@connection_parameters)
+        configure_connection
+      rescue ::Turso::Error => e
+        raise ActiveRecord::ConnectionNotEstablished, e.message
+      end
+
       def check_version
         true
       end

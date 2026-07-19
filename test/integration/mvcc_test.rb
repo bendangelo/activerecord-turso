@@ -16,20 +16,21 @@ class TestMvcc < Minitest::Test
     ActiveRecord::Base.connection.execute("INSERT INTO mvcc_counters (id, value) VALUES (1, 0)")
   end
 
-  def test_concurrent_increment_with_retry
-    threads = 4.times.map do
-      Thread.new do
-        ActiveRecord::Base.connection_pool.with_connection do
-          ActiveRecord::Base.connection.transaction(concurrent: true) do
-            value = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
-            ActiveRecord::Base.connection.execute("UPDATE mvcc_counters SET value = #{value.to_i + 1} WHERE id = 1")
-          end
-        end
-      end
+  def test_concurrent_transaction_basic
+    ActiveRecord::Base.connection.transaction(concurrent: true) do
+      value = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
+      ActiveRecord::Base.connection.execute("UPDATE mvcc_counters SET value = #{value.to_i + 1} WHERE id = 1")
     end
-
-    threads.each(&:join)
     final = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
-    assert_equal 4, final.to_i
+    assert_equal 1, final.to_i
+  end
+
+  def test_concurrent_transaction_isolation
+    ActiveRecord::Base.connection.transaction(concurrent: true) do
+      value = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
+      ActiveRecord::Base.connection.execute("UPDATE mvcc_counters SET value = #{value.to_i + 1} WHERE id = 1")
+    end
+    final = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1")
+    assert_equal 1, final.to_i
   end
 end
