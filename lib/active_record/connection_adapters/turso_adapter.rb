@@ -101,6 +101,101 @@ module ActiveRecord
         @memory_database || File.exist?(@config[:database].to_s)
       end
 
+      def rename_table(table_name, new_name, **options)
+        validate_table_length!(new_name) unless options[:_uses_legacy_table_name]
+        schema_cache.clear_data_source_cache!(table_name.to_s)
+        schema_cache.clear_data_source_cache!(new_name.to_s)
+        exec_query "ALTER TABLE #{quote_table_name(table_name)} RENAME TO #{quote_table_name(new_name)}"
+        rename_table_indexes(table_name, new_name, **options)
+      end
+
+      def remove_index(table_name, column_name = nil, **options)
+        return if options[:if_exists] && !index_exists?(table_name, column_name, **options)
+
+        index_name = index_name_for_remove(table_name, column_name, options)
+        exec_query "DROP INDEX #{quote_column_name(index_name)}"
+      end
+
+      def add_reference(table_name, ref_name, **options)
+        super(table_name, ref_name, type: :integer, **options)
+      end
+      alias add_belongs_to :add_reference
+
+      def add_column(table_name, column_name, type, **options)
+        type = type.to_sym
+        if invalid_alter_table_type?(type, options)
+          alter_table(table_name) do |definition|
+            definition.column(column_name, type, **options)
+          end
+        else
+          super
+        end
+      end
+
+      def remove_column(table_name, column_name, type = nil, **options)
+        alter_table(table_name) do |definition|
+          definition.remove_column column_name
+          definition.foreign_keys.delete_if { |fk| fk.column == column_name.to_s }
+        end
+      end
+
+      def remove_columns(table_name, *column_names, type: nil, **options)
+        alter_table(table_name) do |definition|
+          column_names.each do |column_name|
+            definition.remove_column column_name
+          end
+          column_names = column_names.map(&:to_s)
+          definition.foreign_keys.delete_if { |fk| column_names.include?(fk.column) }
+        end
+      end
+
+      def change_column_default(table_name, column_name, default_or_changes)
+        default = extract_new_default_value(default_or_changes)
+        alter_table(table_name) do |definition|
+          definition[column_name].default = default
+        end
+      end
+
+      def change_column_null(table_name, column_name, null, default = nil)
+        validate_change_column_null_argument!(null)
+        unless null || default.nil?
+          internal_exec_query("UPDATE #{quote_table_name(table_name)} SET #{quote_column_name(column_name)}=#{quote(default)} WHERE #{quote_column_name(column_name)} IS NULL")
+        end
+        alter_table(table_name) do |definition|
+          definition[column_name].null = null
+        end
+      end
+
+      def change_column(table_name, column_name, type, **options)
+        alter_table(table_name) do |definition|
+          definition.change_column(column_name, type, **options)
+        end
+      end
+
+      def rename_column(table_name, column_name, new_column_name)
+        column = column_for(table_name, column_name)
+        alter_table(table_name, rename: { column.name => new_column_name.to_s })
+        rename_column_indexes(table_name, column.name, new_column_name)
+      end
+
+      def add_timestamps(table_name, **options)
+        options[:null] = false if options[:null].nil?
+        options[:precision] = 6 unless options.key?(:precision)
+        alter_table(table_name) do |definition|
+          definition.column :created_at, :datetime, **options
+          definition.column :updated_at, :datetime, **options
+        end
+      end
+
+      def check_all_foreign_keys_valid!
+        sql = "PRAGMA foreign_key_check"
+        result = execute(sql)
+        unless result.blank?
+          tables = result.map { |row| row["table"] }
+          raise ActiveRecord::StatementInvalid.new("Foreign key violations found: #{tables.join(", ")}", sql: sql, connection_pool: @pool)
+        end
+      end
+
       def supports_ddl_transactions? = true
       def supports_savepoints? = true
       def supports_transaction_isolation? = false
@@ -422,7 +517,9 @@ module ActiveRecord
           execute("PRAGMA foreign_keys = OFF")
           yield
         ensure
-          execute("PRAGMA defer_foreign_keys = #{old_defer_foreign_keys}")
+          if old_defer_foreign_keys
+            execute("PRAGMA defer_foreign_keys = #{old_defer_foreign_keys}")
+          end
           execute("PRAGMA foreign_keys = #{old_foreign_keys}")
         end
       end
