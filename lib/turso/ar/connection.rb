@@ -1,19 +1,35 @@
 # frozen_string_literal: true
 
+require "forwardable"
+
 module Turso
   module AR
     class Connection
-      def initialize(config = {})
+      extend Forwardable
+
+      def_delegators :@db, :close, :closed?, :changes, :total_changes
+
+      def initialize(config)
         @config = config
-        @db = Turso::DB.new(
-          config[:database].to_s,
-          busy_timeout: config[:timeout]&.to_i,
-          query_timeout: config[:query_timeout]&.to_i
-        )
+        @db = ::Turso::DB.new(config[:database].to_s,
+          busy_timeout: config[:busy_timeout] || config[:timeout],
+          query_timeout: config[:query_timeout])
       end
 
-      def prepare(sql)
-        raw_connection.prepare(sql)
+      def last_insert_rowid
+        query("SELECT last_insert_rowid()").first&.values&.first.to_i
+      end
+
+      def raw_connection
+        @db
+      end
+
+      def open?
+        !@db.closed?
+      end
+
+      def disconnect!
+        @db.close unless @db.closed?
       end
 
       def execute(sql, binds = [])
@@ -21,55 +37,34 @@ module Turso
         nil
       end
 
-      def query(sql, binds = [])
-        @db.query(sql, normalize_binds(binds)).to_a
+      def query(sql, params = [])
+        @db.query(sql, normalize_binds(params))
       end
 
       def execute_batch(sql)
         sql.split(";").each do |stmt|
-          @db.execute(stmt.strip) unless stmt.strip.empty?
+          s = stmt.strip
+          @db.execute(s) unless s.empty?
         end
       end
 
-      def close
-        @db.close
-      end
-
-      def closed?
-        @db.closed?
-      end
-
-      def open?
-        !@db.closed?
-      end
-
-      def changes
-        query("SELECT changes()").first&.values&.first.to_i
-      end
-
-      def total_changes
-        query("SELECT total_changes()").first&.values&.first.to_i
-      end
-
-      def last_insert_rowid
-        query("SELECT last_insert_rowid()").first&.values&.first.to_i
+      def prepare(sql)
+        @db.instance_variable_get(:@database).connection.prepare(sql)
       end
 
       def busy_timeout=(ms)
-        raw_connection.busy_timeout = ms.to_i
+        @db.busy_timeout = ms.to_i
       end
 
       def query_timeout=(ms)
-        raw_connection.query_timeout = ms.to_i
+        @db.query_timeout = ms.to_i
       end
 
       def interrupt
-        raw_connection.interrupt
+        @db.interrupt
       end
 
-      def raw_connection
-        @db.instance_variable_get(:@database).connection
-      end
+      private
 
       def normalize_binds(binds)
         binds.map do |value|
