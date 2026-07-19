@@ -92,4 +92,29 @@ class TestAdapter < Minitest::Test
   ensure
     adapter&.disconnect!
   end
+
+  def test_prepared_statements_are_cached
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    adapter.execute("CREATE TABLE users (name TEXT)")
+    pool = adapter.instance_variable_get(:@statements)
+
+    adapter.exec_query("SELECT * FROM users WHERE name = ?", nil, [], prepare: true)
+    adapter.exec_query("SELECT * FROM users WHERE name = ?", nil, [], prepare: true)
+    assert pool.key?("SELECT * FROM users WHERE name = ?")
+  ensure
+    adapter&.disconnect!
+  end
+
+  def test_prepared_statement_returns_correct_results
+    adapter = ActiveRecord::ConnectionAdapters::TursoAdapter.new(@config)
+    adapter.execute("CREATE TABLE users (name TEXT)")
+    adapter.execute("INSERT INTO users VALUES ('Alice')")
+    adapter.execute("INSERT INTO users VALUES ('Bob')")
+
+    name_attr = ActiveRecord::Relation::QueryAttribute.new("name", "Alice", ActiveRecord::Type::String.new)
+    result = adapter.exec_query("SELECT * FROM users WHERE name = ?", nil, [name_attr], prepare: true)
+    assert_equal [["Alice"]], result.rows
+  ensure
+    adapter&.disconnect!
+  end
 end

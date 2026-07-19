@@ -9,41 +9,6 @@ module ActiveRecord
           raw_execute(sql, name)
         end
 
-        def exec_query(sql, name = "SQL", binds = [], prepare: false)
-          materialize_transactions
-
-          type_casted_binds = type_casted_binds(binds)
-          log(sql, name, binds, type_casted_binds) do
-            with_raw_connection do |conn|
-              stmt = conn.prepare(sql)
-              stmt.bind_positional(type_casted_binds) unless type_casted_binds.empty?
-              result = build_result(stmt)
-              stmt.finalize
-              result
-            end
-          end
-        end
-
-        def exec_insert(sql, name = nil, binds = [], pk = nil, sequence_name = nil, returning = nil)
-          if returning && supports_insert_returning?
-            return exec_query(sql, name, binds)
-          end
-
-          materialize_transactions
-
-          type_casted_binds = type_casted_binds(binds)
-          log(sql, name, binds, type_casted_binds) do
-            with_raw_connection do |conn|
-              stmt = conn.prepare(sql)
-              stmt.bind_positional(type_casted_binds) unless type_casted_binds.empty?
-              stmt.execute
-              last_id = pk ? last_inserted_id(sql) : nil
-              stmt.finalize
-              last_id
-            end
-          end
-        end
-
         def last_inserted_id(sql)
           @raw_connection.last_insert_rowid
         end
@@ -85,22 +50,37 @@ module ActiveRecord
             return ActiveRecord::Result.empty(affected_rows: 0)
           end
 
-          if write_query?(sql)
-            raw_connection.execute(sql, type_casted_binds)
-            affected_rows = raw_connection.changes
-            verified!
-            notification_payload[:affected_rows] = affected_rows
-            notification_payload[:row_count] = 0
-            ActiveRecord::Result.empty(affected_rows: affected_rows)
+          stmt = if prepare
+            @statements[sql] ||= raw_connection.prepare(sql)
           else
-            result = raw_connection.query(sql, type_casted_binds)
-            columns = result.column_names
-            rows = result.map(&:values)
-            affected_rows = raw_connection.changes
-            verified!
-            notification_payload[:affected_rows] = affected_rows
-            notification_payload[:row_count] = rows.length
-            ActiveRecord::Result.new(columns, rows, nil, affected_rows: affected_rows)
+            raw_connection.prepare(sql)
+          end
+
+          stmt.reset if prepare
+          stmt.bind_positional(type_casted_binds) unless type_casted_binds.empty?
+
+          begin
+            if write_query?(sql)
+              affected_rows = stmt.execute
+              verified!
+              notification_payload[:affected_rows] = affected_rows
+              notification_payload[:row_count] = 0
+              ActiveRecord::Result.empty(affected_rows: affected_rows)
+            else
+              columns = (0...stmt.column_count).map { |i| stmt.column_name(i) }
+              rows = []
+              while stmt.step == 1
+                rows << stmt.row.to_a
+              end
+              affected_rows = raw_connection.changes
+              verified!
+              notification_payload[:affected_rows] = affected_rows
+              notification_payload[:row_count] = rows.length
+              type_map = build_type_map(stmt)
+              ActiveRecord::Result.new(columns, rows, type_map, affected_rows: affected_rows)
+            end
+          ensure
+            stmt.finalize unless prepare
           end
         end
 
@@ -121,16 +101,6 @@ module ActiveRecord
         end
 
         private
-
-        def build_result(stmt)
-          columns = (0...stmt.column_count).map { |i| stmt.column_name(i) }
-          type_map = build_type_map(stmt)
-          rows = []
-          while stmt.step == 1
-            rows << stmt.row.to_a
-          end
-          ActiveRecord::Result.new(columns, rows, type_map)
-        end
 
         def build_type_map(stmt)
           type_map = {}
