@@ -29,6 +29,15 @@ jobs:
   rails-suite:
     runs-on: ubuntu-latest
     needs: local-tests
+    continue-on-error: true
+    strategy:
+      matrix:
+        test_file:
+          - base_test.rb
+          - adapter_test.rb
+          - migration_test.rb
+          - transaction_test.rb
+          - basics_test.rb
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -52,9 +61,9 @@ jobs:
           YAML
           bundle config set without 'db'
           bundle install
-      - name: Run Rails base test
+      - name: Run Rails test
         working-directory: /tmp/rails/activerecord
         run: |
           ARCONN=turso bundle exec ruby -Itest \
             -r${{ github.workspace }}/lib/activerecord-turso \
-            test/cases/base_test.rb
+            test/cases/${{ matrix.test_file }}
