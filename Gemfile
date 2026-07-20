@@ -5,7 +5,11 @@ source "https://rubygems.org"
 gemspec
 gem "minitest"
 gem "rake"
-gem "turso", path: "~/Projects/turso/bindings/ruby/gem"
+if File.directory?(File.expand_path("~/Projects/turso/bindings/ruby/gem"))
+  gem "turso", path: "~/Projects/turso/bindings/ruby/gem"
+else
+  gem "turso"
+end
 gem "sqlite3"
 
 group :test do

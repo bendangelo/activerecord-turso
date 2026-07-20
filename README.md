@@ -8,7 +8,7 @@ This adapter is under **active** development. It can run basic ActiveRecord oper
 
 ## Requirements
 
-- Ruby >= 3.0
+- Ruby >= 3.2
 - ActiveRecord >= 8.0, < 8.2
 - The `turso` Ruby gem
 
