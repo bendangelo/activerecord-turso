@@ -17,7 +17,8 @@ module ActiveRecord
         end
 
         def active?
-          @raw_connection && !@raw_connection.closed?
+          return false unless @raw_connection
+          !@raw_connection.closed?
         rescue ::Turso::Error
           false
         end
