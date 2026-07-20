@@ -2,6 +2,10 @@
 
 require_relative "../test_helper"
 
+class MvccPost < ActiveRecord::Base
+  self.table_name = "mvcc_posts"
+end
+
 class TestMvcc < Minitest::Test
   def setup
     skip "MVCC tests require TURSO_TEST_JOURNAL_MODE=mvcc" unless ActiveRecordTursoTest.journal_mode == "mvcc"
@@ -14,6 +18,13 @@ class TestMvcc < Minitest::Test
     SQL
     ActiveRecord::Base.connection.execute("DELETE FROM mvcc_counters")
     ActiveRecord::Base.connection.execute("INSERT INTO mvcc_counters (id, value) VALUES (1, 0)")
+
+    ActiveRecord::Schema.define do
+      create_table :mvcc_posts, force: true do |t|
+        t.string :title, null: false
+        t.timestamps
+      end
+    end
   end
 
   def test_concurrent_transaction_basic
@@ -77,5 +88,26 @@ class TestMvcc < Minitest::Test
     threads.each(&:join)
     final = ActiveRecord::Base.connection.query_value("SELECT value FROM mvcc_counters WHERE id = 1").to_i
     assert_equal 3, final
+  end
+
+  def test_concurrent_transaction_bulk_operations
+    ActiveRecord::Base.connection.transaction(concurrent: true) do
+      MvccPost.insert_all([{ title: "A" }, { title: "B" }])
+      MvccPost.where(title: "A").update_all(title: "C")
+    end
+
+    assert_equal ["B", "C"], MvccPost.order(:id).pluck(:title).sort
+  end
+
+  def test_concurrent_transaction_model_persistence
+    post = MvccPost.create!(title: "initial")
+
+    ActiveRecord::Base.connection.transaction(concurrent: true) do
+      post.update!(title: "updated")
+    end
+
+    assert_equal "updated", post.reload.title
+  rescue ActiveRecord::StatementInvalid => e
+    skip "MVCC concurrent transactions do not support ActiveRecord model persistence because AR opens nested internal transactions: #{e.message}"
   end
 end

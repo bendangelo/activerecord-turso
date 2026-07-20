@@ -75,6 +75,16 @@ module ActiveRecord
           SQL
         end
 
+        def fts_match(_table_name, columns, query)
+          cols = Array(columns).map { |c| quote_table_name(c) }.join(", ")
+          Arel.sql("fts_match(#{cols}, #{quote(query)})")
+        end
+
+        def fts_score(_table_name, columns, query)
+          cols = Array(columns).map { |c| quote_table_name(c) }.join(", ")
+          Arel.sql("fts_score(#{cols}, #{quote(query)})")
+        end
+
         private
 
         def options_to_fts_options(options)

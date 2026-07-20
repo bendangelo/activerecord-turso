@@ -36,7 +36,7 @@ module ActiveRecordTursoTest
   end
 
   def self.experimental_features
-    features = ENV.fetch("TURSO_TEST_EXPERIMENTAL_FEATURES", "")
+    features = ENV.fetch("TURSO_TEST_EXPERIMENTAL_FEATURES", "index_method")
     features.split(",").map(&:strip).reject(&:empty?)
   end
 end
