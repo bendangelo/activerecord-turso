@@ -2,7 +2,7 @@
 *Last updated: 2026-07-19*
 
 ## Currently Working On
-Hardening the `activerecord-turso` adapter and local Turso Ruby gem for production use in a real Rails app. We are mid-discipline switch: moving from manual Ruby exploration to proper file-based test coverage, with a newly discovered MVCC concurrency blocker under investigation.
+Hardening the `activerecord-turso` adapter and local Turso Ruby gem for production use in a real Rails app. The test suite is now complete and green in both WAL and MVCC modes (with documented skips).
 
 ## Decisions Made
 - **Goal A chosen:** production-ready real Rails app, not full upstream ActiveRecord conformance.
@@ -13,23 +13,29 @@ Hardening the `activerecord-turso` adapter and local Turso Ruby gem for producti
 - **Stored generated columns are unsupported**; virtual generated columns work when `experimental_features: generated_columns` is set.
 - **Adapter avoids `instance_variable_get`** on the gem; public `Turso::DB#prepare` was added.
 - **MVCC retry loop lives in `transaction_management.rb`**; it retries on `database schema is locked` errors.
+- **MVCC has documented limitations:**
+  - Custom index modules (FTS) are unsupported in MVCC mode.
+  - `transaction(concurrent: true)` works for raw SQL and bulk operations but cannot support normal ActiveRecord model persistence because AR opens nested internal transactions.
 
 ## Blockers
-- [ ] **MVCC + ActiveRecord model persistence is broken inside `transaction(concurrent: true)`.**
-  - Raw SQL and bulk operations (`insert_all`, `update_all`, `update_columns`, `update_column`) work.
-  - ActiveRecord model persistence (`Post.create!`, `post.update!`, `post.touch`) fails because AR wraps them in nested internal transactions via `with_transaction_returning_status`, causing Turso error: `Transaction error: cannot start a transaction within a transaction`.
-  - Temporary confirmation: `post.class.transaction { post.update_columns(...) }` also fails inside a concurrent transaction.
+- None currently. The suite passes in both modes.
 
 ## Next Steps
-1. Revert or stabilize any temporary exploratory changes in `transaction_management.rb` and `turso_adapter.rb`.
-2. Write a failing test file proving the MVCC + AR persistence bug.
-3. Decide whether to fix MVCC + AR persistence, document it as unsupported, or provide an alternative API; then adjust code/tests accordingly.
-4. Write thorough test files for connection management, CRUD/associations, transactions/savepoints, type casting, FTS, error translation, and edge cases.
-5. Run the full suite in both WAL and MVCC modes and commit.
+1. Push commits or open a PR if the work needs review.
+2. Re-evaluate the MVCC + AR persistence limitation if a future Turso engine release supports nested/concurrent transactions differently.
+3. Add CI that runs the suite in both WAL and MVCC modes, plus a run with `TURSO_TEST_EXPERIMENTAL_FEATURES=generated_columns`.
+4. Continue production-readiness audit: query cache, prepared statement pool, explain output, connection pool tuning.
 
 ## Recently Modified Files
-- `lib/active_record/connection_adapters/turso_adapter/connection_management.rb` — fixed `active?` returning `nil` instead of `false` after disconnect (uncommitted).
+- `lib/active_record/connection_adapters/turso_adapter/schema_statements.rb` — added `fts_match`/`fts_score` helpers; fixed `add_fts_index` SQL syntax.
+- `test/test_helper.rb` — default experimental features to `index_method`.
+- `test/test_error_translation.rb` — removed stale standalone test.
+- `test/integration/mvcc_test.rb` — added MVCC AR persistence skip test and bulk-op test.
+- `test/integration/connection_management_test.rb` — new.
+- `test/integration/transactions_test.rb` — new.
+- `test/integration/error_translation_test.rb` — new.
+- `test/integration/fts_test.rb` — new.
+- `test/integration/edge_cases_test.rb` — new.
 
 ## Uncommitted Changes
-- `M lib/active_record/connection_adapters/turso_adapter/connection_management.rb` (`active?` fix).
-- `?? docs/` (new, content unknown).
+None — working tree is clean.
