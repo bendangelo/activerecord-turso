@@ -9,11 +9,14 @@ module Turso
 
       def_delegators :@db, :close, :closed?, :changes, :total_changes
 
+      DEFAULT_BUSY_TIMEOUT_MS = 5000
+      DEFAULT_QUERY_TIMEOUT_MS = 30_000
+
       def initialize(config)
         @config = config
         db_opts = {
-          busy_timeout: config[:busy_timeout] || config[:timeout],
-          query_timeout: config[:query_timeout]
+          busy_timeout: config[:busy_timeout] || config[:timeout] || DEFAULT_BUSY_TIMEOUT_MS,
+          query_timeout: config[:query_timeout] || DEFAULT_QUERY_TIMEOUT_MS
         }
         db_opts[:experimental_features] = config[:experimental_features] if config[:experimental_features]
         @db = ::Turso::DB.new(config[:database].to_s, **db_opts)

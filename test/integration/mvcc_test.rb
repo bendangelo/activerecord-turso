@@ -99,15 +99,15 @@ class TestMvcc < Minitest::Test
     assert_equal ["B", "C"], MvccPost.order(:id).pluck(:title).sort
   end
 
-  def test_concurrent_transaction_model_persistence
+  def test_concurrent_transaction_model_persistence_is_retried_then_raises
     post = MvccPost.create!(title: "initial")
 
-    ActiveRecord::Base.connection.transaction(concurrent: true) do
-      post.update!(title: "updated")
+    error = assert_raises(ActiveRecord::StatementInvalid) do
+      ActiveRecord::Base.connection.transaction(concurrent: true) do
+        post.update!(title: "updated")
+      end
     end
 
-    assert_equal "updated", post.reload.title
-  rescue ActiveRecord::StatementInvalid => e
-    skip "MVCC concurrent transactions do not support ActiveRecord model persistence because AR opens nested internal transactions: #{e.message}"
+    assert_match(/cannot start a transaction within a transaction/i, error.message)
   end
 end

@@ -50,6 +50,11 @@ module ActiveRecord
                   "transaction(concurrent: true) requires journal_mode: 'mvcc' in database.yml"
           end
 
+          if options[:requires_new] == false
+            raise ActiveRecord::AdapterError,
+                  "transaction(concurrent: true) is incompatible with nested transactions"
+          end
+
           max_retries = @config.fetch(:concurrent_retry_limit, 50)
           base_delay_ms = @config.fetch(:concurrent_retry_base_ms, 2)
           retries = 0
@@ -84,7 +89,7 @@ module ActiveRecord
           conflict_classes << ::Turso::WriteWriteConflict if defined?(::Turso::WriteWriteConflict)
 
           conflict_classes.any? { |klass| cause.is_a?(klass) } ||
-            /snapshot conflict|busy snapshot|database is locked/i.match?(exception.message)
+            /snapshot conflict|busy snapshot|database is locked|cannot start a transaction within a transaction/i.match?(exception.message)
         end
 
         def rollback_if_active

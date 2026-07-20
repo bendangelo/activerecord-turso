@@ -59,14 +59,11 @@ module ActiveRecord
 
           execute("PRAGMA foreign_keys = ON")
 
-          if @config[:timeout] || @config[:busy_timeout]
-            timeout = @config[:busy_timeout] || @config[:timeout]
-            @raw_connection.busy_timeout = timeout
-          end
+          timeout = @config[:busy_timeout] || @config[:timeout] || 5000
+          @raw_connection.busy_timeout = timeout
 
-          if @config[:query_timeout]
-            @raw_connection.query_timeout = @config[:query_timeout]
-          end
+          query_timeout = @config[:query_timeout] || 30_000
+          @raw_connection.query_timeout = query_timeout
         end
       end
     end

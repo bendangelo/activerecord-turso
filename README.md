@@ -94,10 +94,14 @@ class AddFtsToPosts < ActiveRecord::Migration[8.1]
 end
 ```
 
-Query with Tantivy functions:
+Query with the adapter helpers:
 
-```sql
-SELECT * FROM posts WHERE fts_match(title, body, 'database');
+```ruby
+match = ActiveRecord::Base.connection.fts_match(:posts, [:title, :body], "database")
+Post.where(match)
+
+score = ActiveRecord::Base.connection.fts_score(:posts, [:title, :body], "database")
+Post.select(:id, :title, score.as("rank")).where(match).order("rank ASC")
 ```
 
 Note: `fts5` virtual tables are not supported. Use `USING fts` indexes instead. This requires the `index_method` experimental feature:
@@ -129,13 +133,29 @@ Use `concurrent: true` inside the same pinned connection:
 
 ```ruby
 ActiveRecord::Base.connection.transaction(concurrent: true) do
-  # read-modify-write
+  # read-modify-write using raw SQL or bulk operations
 end
 ```
 
 Caveats:
 - The connection must stay checked out for the whole transaction; avoid work that yields the ActiveRecord connection back to the pool.
 - `busy_timeout` is used for lock waits, not MVCC snapshot conflicts. Snapshot conflicts retry with bounded backoff.
+- Normal ActiveRecord model persistence (`create!`, `save!`, `update!`, `touch`) is **not supported** inside a concurrent transaction because ActiveRecord opens its own internal transaction for each model change. Use raw SQL (`execute`, `exec_query`) or bulk operations (`insert_all`, `update_all`, `update_columns`) instead.
+- FTS custom index modules are not supported in MVCC mode.
+
+## Recommended production configuration
+
+```yaml
+production:
+  adapter: turso
+  database: db/production.sqlite3
+  journal_mode: wal            # Use mvcc only if you need concurrent writers and understand the caveats above
+  pool: 5
+  timeout: 5000                # busy_timeout default in milliseconds
+  query_timeout: 30000           # maximum time a single query may run
+  busy_timeout: 5000           # explicit busy timeout (falls back to timeout)
+  experimental_features: "index_method"
+```
 
 ## Limitations and Risks
 
@@ -149,19 +169,20 @@ The adapter builds column type maps from `column_decltype` metadata. This works 
 
 The adapter's batch execution path splits multi-statement SQL on semicolons. This means SQL containing semicolons inside string literals, triggers, or stored expressions may be split incorrectly. Avoid relying on multi-statement strings other than simple schema dumps.
 
-### 3. MVCC requires opt-in and has pooling caveats
+### 3. MVCC requires opt-in and has ActiveRecord compatibility caveats
 
 `BEGIN CONCURRENT` is powerful but breaks ActiveRecord's default assumptions:
 
 - ActiveRecord expects transactions to commit unless the database returns an error. With `BEGIN CONCURRENT`, the commit can fail with a snapshot conflict and must be retried.
 - The retry loop must run on the same connection. Rails' connection pool is not MVCC-aware and may return the connection to the pool between retries.
 - Do not combine concurrent transactions with pessimistic locking (`lock!`, `with_lock`, `lock_version`).
+- Normal model persistence (`create!`, `save!`, `update!`, `touch`) is unsupported inside a concurrent transaction because ActiveRecord opens an internal transaction for each model change. The error is retried a few times, then raised as `ActiveRecord::StatementInvalid`.
 
-Only use `transaction(concurrent: true)` after testing it under your app's concurrency patterns.
+Only use `transaction(concurrent: true)` after testing it under your app's concurrency patterns, and prefer raw SQL or bulk operations inside the block.
 
-### 4. Prepared statement cache is disabled
+### 4. Prepared statement cache is enabled with a bounded pool
 
-The adapter returns `false` for `default_prepared_statements` and uses a no-op statement pool. Each query is prepared and finalized individually. This is slower than the upstream SQLite3 adapter for high-volume repeated queries, but avoids correctness issues until the Turso bindings expose stable prepared-statement reuse.
+The adapter uses a bounded statement pool with a default limit inherited from Rails (typically `1000`). Statements are evicted with an LRU policy and finalized against the underlying Turso connection. Set `statement_limit` in `database.yml` to tune the pool size.
 
 ### 5. ActiveRecord 8.0 support is CI-tested, not locally tested
 
@@ -186,7 +207,19 @@ bundle install
 bundle exec rake test
 ```
 
-To run against the official Rails Active Record test suite, see the CI workflow in `.github/workflows/test.yml`.
+Run with MVCC mode:
+
+```bash
+TURSO_TEST_JOURNAL_MODE=mvcc bundle exec rake test
+```
+
+Run with generated-columns experimental feature:
+
+```bash
+TURSO_TEST_EXPERIMENTAL_FEATURES=generated_columns bundle exec rake test
+```
+
+The CI workflow in `.github/workflows/ci.yml` runs all three configurations automatically.
 
 ## License
 
