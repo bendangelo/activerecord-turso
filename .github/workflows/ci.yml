@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: wal
+            env:
+              TURSO_TEST_JOURNAL_MODE: wal
+          - name: mvcc
+            env:
+              TURSO_TEST_JOURNAL_MODE: mvcc
+          - name: generated_columns
+            env:
+              TURSO_TEST_EXPERIMENTAL_FEATURES: generated_columns
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Run tests (${{ matrix.name }})
+        env: ${{ matrix.env }}
+        run: bundle exec rake test
