@@ -7,23 +7,23 @@ module ActiveRecord
         def translate_exception(exception, message:, sql:, binds:)
           cause = exception.cause
           case cause
-          when ::Turso::ConstraintError
+          when ::Turso::ConstraintException
             translate_constraint_error(message, sql, binds)
-          when ::Turso::NotADatabaseError
+          when ::Turso::NotADatabaseException
             ActiveRecord::NoDatabaseError.new(message, sql: sql, binds: binds)
-          when ::Turso::BusySnapshotError
+          when ::Turso::BusySnapshotException
             ActiveRecord::SerializationFailure.new(message, sql: sql, binds: binds)
-          when ::Turso::BusyError
+          when ::Turso::BusyException
             ActiveRecord::Deadlocked.new(message, sql: sql, binds: binds)
-          when ::Turso::ReadonlyError
+          when ::Turso::ReadonlyException
             ActiveRecord::ReadOnlyRecord.new(message, sql: sql, binds: binds)
-          when ::Turso::IoError, ::Turso::CorruptError
+          when ::Turso::IoException, ::Turso::CorruptException
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
-          when ::Turso::DatabaseFullError
+          when ::Turso::DatabaseFullException
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
-          when ::Turso::InterruptError
+          when ::Turso::InterruptException
             ActiveRecord::QueryCanceled.new(message, sql: sql, binds: binds)
-          when ::Turso::MisuseError
+          when ::Turso::MisuseException
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
           else
             super

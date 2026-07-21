@@ -19,11 +19,11 @@ module Turso
           query_timeout: config[:query_timeout] || DEFAULT_QUERY_TIMEOUT_MS
         }
         db_opts[:experimental_features] = config[:experimental_features] if config[:experimental_features]
-        @db = ::Turso::DB.new(config[:database].to_s, **db_opts)
+        @db = ::Turso::Database.new(config[:database].to_s, **db_opts)
       end
 
       def last_insert_rowid
-        query("SELECT last_insert_rowid()").first&.values&.first.to_i
+        query("SELECT last_insert_rowid()").first&.to_a&.first.to_i
       end
 
       def raw_connection
@@ -39,12 +39,12 @@ module Turso
       end
 
       def execute(sql, binds = [])
-        @db.execute(sql, normalize_binds(binds))
+        @db.execute(sql, *normalize_binds(binds))
         nil
       end
 
       def query(sql, params = [])
-        @db.query(sql, normalize_binds(params))
+        @db.query(sql, *normalize_binds(params))
       end
 
       def execute_batch(sql)
@@ -59,10 +59,6 @@ module Turso
 
       def busy_timeout=(ms)
         @db.busy_timeout = ms.to_i
-      end
-
-      def query_timeout=(ms)
-        @db.query_timeout = ms.to_i
       end
 
       def interrupt
@@ -127,6 +123,10 @@ module Turso
               next
             end
             current << char
+          when "#"
+            in_line_comment = true
+            i += 1
+            next
           when "/"
             if next_char == "*"
               in_block_comment = true

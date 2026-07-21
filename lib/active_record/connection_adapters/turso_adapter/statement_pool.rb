@@ -9,7 +9,7 @@ module ActiveRecord
         private
 
         def dealloc(stmt)
-          stmt.finalize
+          stmt.close
         rescue ::Turso::Error
         end
       end

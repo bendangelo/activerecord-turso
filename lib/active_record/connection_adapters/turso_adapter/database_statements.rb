@@ -33,12 +33,9 @@ module ActiveRecord
           log(sql, name, binds, type_casted_binds) do
             with_raw_connection do |conn|
               stmt = conn.prepare(sql)
-              stmt.bind_positional(type_casted_binds) unless type_casted_binds.empty?
-              rows = []
-              while stmt.step == 1
-                rows << stmt.row.to_a
-              end
-              stmt.finalize
+              stmt.bind(*type_casted_binds) unless type_casted_binds.empty?
+              rows = stmt.all.map(&:to_a)
+              stmt.close
               rows
             end
           end
@@ -57,21 +54,20 @@ module ActiveRecord
           end
 
           stmt.reset if prepare
-          stmt.bind_positional(type_casted_binds) unless type_casted_binds.empty?
+          stmt.bind(*type_casted_binds) unless type_casted_binds.empty?
 
           begin
             if write_query?(sql)
-              affected_rows = stmt.execute
+              result = stmt.run
+              affected_rows = result[:changes]
               verified!
               notification_payload[:affected_rows] = affected_rows
               notification_payload[:row_count] = 0
               ActiveRecord::Result.empty(affected_rows: affected_rows)
             else
-              columns = (0...stmt.column_count).map { |i| stmt.column_name(i) }
-              rows = []
-              while stmt.step == 1
-                rows << stmt.row.to_a
-              end
+              columns_info = stmt.columns
+              columns = columns_info.map { |c| c[:name] }
+              rows = stmt.all.map(&:to_a)
               affected_rows = raw_connection.changes
               verified!
               notification_payload[:affected_rows] = affected_rows
@@ -80,7 +76,7 @@ module ActiveRecord
               ActiveRecord::Result.new(columns, rows, type_map, affected_rows: affected_rows)
             end
           ensure
-            stmt.finalize unless prepare
+            stmt.close unless prepare
           end
         end
 
@@ -104,9 +100,8 @@ module ActiveRecord
 
         def build_type_map(stmt)
           type_map = {}
-          count = stmt.column_count
-          count.times do |i|
-            decltype = stmt.respond_to?(:column_decltype) ? stmt.column_decltype(i) : nil
+          stmt.columns.each_with_index do |col, i|
+            decltype = col[:type]
             next unless decltype
             type_map[i] = decltype_to_type(decltype)
           end

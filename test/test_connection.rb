@@ -15,7 +15,7 @@ class TestConnection < Minitest::Test
     conn.execute("CREATE TABLE users (name TEXT)")
     conn.execute("INSERT INTO users VALUES (?)", ["Alice"])
     rows = conn.query("SELECT * FROM users")
-    assert_equal [["Alice"]], rows.map(&:values)
+    assert_equal [["Alice"]], rows.map(&:to_a)
   end
 
   def test_changes_and_last_insert_rowid
