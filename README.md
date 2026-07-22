@@ -12,6 +12,10 @@ This adapter is under **active** development. It can run basic ActiveRecord oper
 - ActiveRecord >= 8.0, < 8.2
 - The `turso` Ruby gem
 
+## Runtime dependencies
+
+This adapter uses the `turso` gem and does **not** require the `sqlite3` Ruby gem at runtime.
+
 ## Installation
 
 Add to your Gemfile:
@@ -47,7 +51,23 @@ end
 Post.create!(title: "Hello", body: "World", published: true)
 ```
 
-### MVCC / BEGIN CONCURRENT
+## Recommended production configuration
+
+```yaml
+production:
+  adapter: turso
+  database: db/production.sqlite3
+  journal_mode: wal
+  pool: 5
+  timeout: 5000
+  busy_timeout: 5000
+  query_timeout: 30000
+  experimental_features: "index_method"
+```
+
+### MVCC / BEGIN CONCURRENT (experimental)
+
+⚠️ **Experimental.** Do not use in production unless you understand the caveats below. Normal ActiveRecord model persistence (`create!`, `save!`, `update!`, `touch`) is **not supported** inside `transaction(concurrent: true)`.
 
 Turso supports `BEGIN CONCURRENT` for optimistic, multi-writer transactions. To opt in, pass `concurrent: true` to `transaction`:
 
@@ -124,8 +144,6 @@ development:
   journal_mode: mvcc
   busy_timeout: 5000
 
-  # Enable experimental Turso features when needed (e.g., custom index methods for FTS).
-  # Pass a comma-separated string or an array of feature names.
   experimental_features: "index_method"
 ```
 
@@ -133,7 +151,6 @@ Use `concurrent: true` inside the same pinned connection:
 
 ```ruby
 ActiveRecord::Base.connection.transaction(concurrent: true) do
-  # read-modify-write using raw SQL or bulk operations
 end
 ```
 
@@ -142,20 +159,6 @@ Caveats:
 - `busy_timeout` is used for lock waits, not MVCC snapshot conflicts. Snapshot conflicts retry with bounded backoff.
 - Normal ActiveRecord model persistence (`create!`, `save!`, `update!`, `touch`) is **not supported** inside a concurrent transaction because ActiveRecord opens its own internal transaction for each model change. Use raw SQL (`execute`, `exec_query`) or bulk operations (`insert_all`, `update_all`, `update_columns`) instead.
 - FTS custom index modules are not supported in MVCC mode.
-
-## Recommended production configuration
-
-```yaml
-production:
-  adapter: turso
-  database: db/production.sqlite3
-  journal_mode: wal            # Use mvcc only if you need concurrent writers and understand the caveats above
-  pool: 5
-  timeout: 5000                # busy_timeout default in milliseconds
-  query_timeout: 30000           # maximum time a single query may run
-  busy_timeout: 5000           # explicit busy timeout (falls back to timeout)
-  experimental_features: "index_method"
-```
 
 ## Limitations and Risks
 
@@ -176,7 +179,7 @@ The adapter's batch execution path splits multi-statement SQL on semicolons. Thi
 - ActiveRecord expects transactions to commit unless the database returns an error. With `BEGIN CONCURRENT`, the commit can fail with a snapshot conflict and must be retried.
 - The retry loop must run on the same connection. Rails' connection pool is not MVCC-aware and may return the connection to the pool between retries.
 - Do not combine concurrent transactions with pessimistic locking (`lock!`, `with_lock`, `lock_version`).
-- Normal model persistence (`create!`, `save!`, `update!`, `touch`) is unsupported inside a concurrent transaction because ActiveRecord opens an internal transaction for each model change. The error is retried a few times, then raised as `ActiveRecord::StatementInvalid`.
+- Normal model persistence (`create!`, `save!`, `update!`, `touch`) is unsupported inside a concurrent transaction because ActiveRecord opens an internal transaction for each model change.
 
 Only use `transaction(concurrent: true)` after testing it under your app's concurrency patterns, and prefer raw SQL or bulk operations inside the block.
 
@@ -188,13 +191,16 @@ The adapter uses a bounded statement pool with a default limit inherited from Ra
 
 Only ActiveRecord 8.1 is installed in the primary development environment. ActiveRecord 8.0 compatibility is validated through CI. If you run into 8.0-specific issues, please report them.
 
-### 6. Some SQLite-specific features are unsupported or conservatively flagged
+### 6. INSERT RETURNING is disabled (not supported by Turso)
+
+The underlying Turso SQLite build does not support `INSERT ... RETURNING` syntax. The adapter reports `supports_insert_returning?` as `false`, so ActiveRecord falls back to `last_insert_rowid()` for retrieving inserted IDs.
+
+### 7. Some SQLite-specific features are unsupported or conservatively flagged
 
 - Transaction isolation levels other than the default are reported as unsupported (`supports_transaction_isolation?` returns `false`) because Turso remote connections do not provide shared-cache read-uncommitted semantics.
-- `insert_returning` is enabled only when the reported SQLite version is `>= 3.35.0`.
 - `insert_on_conflict` is enabled only when the reported SQLite version is `>= 3.24.0`.
 
-### 7. `execute_batch` in the underlying bindings is a Ruby-side fallback
+### 8. `execute_batch` in the underlying bindings is a Ruby-side fallback
 
 The `turso` gem provides `DB#execute_batch` as a convenience that splits and executes statements one by one. It does not use a native batch API, so it carries the same semicolon-splitting risk as item 2 above.
 

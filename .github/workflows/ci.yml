@@ -12,7 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
+        ruby: ["3.2", "3.3", "3.4"]
+        config:
           - name: wal
             env:
               TURSO_TEST_JOURNAL_MODE: wal
@@ -30,9 +31,9 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
-      - name: Run tests (${{ matrix.name }})
-        env: ${{ matrix.env }}
+      - name: Run tests (${{ matrix.config.name }} / Ruby ${{ matrix.ruby }})
+        env: ${{ matrix.config.env }}
         run: bundle exec rake test

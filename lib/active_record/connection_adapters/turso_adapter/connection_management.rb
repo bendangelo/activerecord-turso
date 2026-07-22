@@ -54,6 +54,9 @@ module ActiveRecord
             execute("PRAGMA journal_mode = #{mode}")
             if @config[:journal_mode].to_s.downcase == "mvcc"
               @mvcc_enabled = true
+              ActiveRecord::Base.logger&.warn(
+                "Turso journal_mode: mvcc is experimental. Concurrent transactions require careful connection handling."
+              )
             end
           end
 

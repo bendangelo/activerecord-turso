@@ -34,7 +34,7 @@ module ActiveRecord
 
         def translate_constraint_error(message, sql, binds)
           case message
-          when /foreign key constraint/i
+          when /foreign key constraint|foreign key mismatch/i
             ActiveRecord::InvalidForeignKey.new(message, sql: sql, binds: binds)
           when /unique constraint|primary key/i
             ActiveRecord::RecordNotUnique.new(message, sql: sql, binds: binds)

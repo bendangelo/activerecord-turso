@@ -34,6 +34,10 @@ module ActiveRecord
 
         def transaction(requires_new: nil, isolation: nil, joinable: true, **options, &block)
           if options.delete(:concurrent)
+            ActiveRecord::Base.logger&.warn(
+              "transaction(concurrent: true) is experimental and may break ActiveRecord model persistence. " \
+              "See adapter documentation."
+            )
             transaction_with_mvcc(options, &block)
           else
             super
@@ -85,8 +89,7 @@ module ActiveRecord
 
         def concurrent_conflict?(exception)
           cause = exception.cause
-          conflict_classes = [::Turso::BusySnapshotError, ::Turso::BusyError]
-          conflict_classes << ::Turso::WriteWriteConflict if defined?(::Turso::WriteWriteConflict)
+          conflict_classes = [::Turso::BusySnapshotException, ::Turso::BusyException]
 
           conflict_classes.any? { |klass| cause.is_a?(klass) } ||
             /snapshot conflict|busy snapshot|database is locked|cannot start a transaction within a transaction/i.match?(exception.message)

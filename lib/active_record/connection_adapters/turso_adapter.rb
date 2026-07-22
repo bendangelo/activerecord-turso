@@ -25,6 +25,10 @@ module ActiveRecord
         false
       end
 
+      def sqlite_version
+        @sqlite_version ||= Gem::Version.new(query_value("SELECT sqlite_version()"))
+      end
+
       def supports_transaction_isolation?
         false
       end
@@ -37,10 +41,16 @@ module ActiveRecord
         true
       end
 
+      def quote_string(s)
+        s.gsub("'", "''")
+      end
+
       def explain(arel, binds = [], _options = [])
         sql = "EXPLAIN QUERY PLAN " + to_sql(arel, binds)
         result = exec_query(sql, "EXPLAIN", binds)
-        SQLite3::ExplainPrettyPrinter.new.pp(result)
+        result.rows.map do |row|
+          row.join(" | ")
+        end.join("\n")
       end
 
       def build_statement_pool

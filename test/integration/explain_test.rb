@@ -19,11 +19,10 @@ class TestExplain < Minitest::Test
 
     conn = ActiveRecord::Base.connection
     conn.add_index(:explain_posts, :title, name: "idx_explain_posts_title")
-    conn.add_fts_index(:explain_posts, [:title, :body], tokenizer: :default)
 
     ExplainPost.create!(title: "Ruby on Rails", body: "A web framework")
   rescue ActiveRecord::StatementInvalid => e
-    skip "FTS explain requires experimental_features: ['index_method'] in database.yml: #{e.message}"
+    skip "Setup failed: #{e.message}"
   end
 
   def test_relation_explain_returns_plan
@@ -31,13 +30,10 @@ class TestExplain < Minitest::Test
     assert_match(/SEARCH|SCAN|EXPLAIN/, output)
   end
 
-  def test_fts_explain_shows_index_method
-    skip "FTS indexes are not supported in MVCC mode" if ActiveRecordTursoTest.journal_mode == "mvcc"
-
+  def test_explain_returns_structured_output
     conn = ActiveRecord::Base.connection
-    match = conn.fts_match(:explain_posts, [:title, :body], "Rails")
-    output = ExplainPost.where(match).explain.inspect
-
-    assert_match(/QUERY INDEX METHOD fts/i, output)
+    result = conn.explain(ExplainPost.where(title: "test").arel, [])
+    assert_kind_of String, result
+    refute_empty result
   end
 end

@@ -11,6 +11,7 @@ module ActiveRecord
               AND name NOT LIKE 'sqlite_%'
               AND name NOT LIKE 'fts_dir_%'
               AND name NOT LIKE 'sqlite_fts_%'
+              AND name NOT LIKE '__turso_internal_%'
           SQL
         end
 

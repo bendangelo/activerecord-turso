@@ -99,6 +99,15 @@ class TestMvcc < Minitest::Test
     assert_equal ["B", "C"], MvccPost.order(:id).pluck(:title).sort
   end
 
+  def test_concurrent_transaction_emits_warning
+    _output, warnings = capture_io do
+      ActiveRecord::Base.logger = Logger.new($stderr)
+      ActiveRecord::Base.connection.transaction(concurrent: true) {}
+    end
+
+    assert_match(/experimental/i, warnings)
+  end
+
   def test_concurrent_transaction_model_persistence_is_retried_then_raises
     post = MvccPost.create!(title: "initial")
 

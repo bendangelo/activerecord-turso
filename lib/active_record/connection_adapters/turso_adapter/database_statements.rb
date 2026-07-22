@@ -6,7 +6,7 @@ module ActiveRecord
       module DatabaseStatements
         def execute(sql, name = nil)
           materialize_transactions
-          raw_execute(sql, name)
+          raw_execute(sql, name)&.to_a
         end
 
         def last_inserted_id(sql)
@@ -25,19 +25,13 @@ module ActiveRecord
           binds
         end
 
-        def select_rows(arel, name = nil)
+        def select_rows(arel, name = nil, binds = [], _options = {})
           arel = arel_from_relation(arel)
-          sql, binds = to_sql_and_binds(arel)
+          sql, binds = to_sql_and_binds(arel, binds)
           type_casted_binds = type_casted_binds(binds)
 
           log(sql, name, binds, type_casted_binds) do
-            with_raw_connection do |conn|
-              stmt = conn.prepare(sql)
-              stmt.bind(*type_casted_binds) unless type_casted_binds.empty?
-              rows = stmt.all.map(&:to_a)
-              stmt.close
-              rows
-            end
+            exec_query(sql, name, binds, prepare: false).rows
           end
         end
 
@@ -57,7 +51,7 @@ module ActiveRecord
           stmt.bind(*type_casted_binds) unless type_casted_binds.empty?
 
           begin
-            if write_query?(sql)
+            if write_query?(sql) && !sql.match?(/\bRETURNING\b/i)
               result = stmt.run
               affected_rows = result[:changes]
               verified!
@@ -85,11 +79,11 @@ module ActiveRecord
           old_defer_foreign_keys = query_value("PRAGMA defer_foreign_keys")
 
           begin
-            execute("PRAGMA defer_foreign_keys = ON")
+            execute("PRAGMA defer_foreign_keys = ON") unless old_defer_foreign_keys.nil?
             execute("PRAGMA foreign_keys = OFF")
             yield
           ensure
-            if old_defer_foreign_keys
+            unless old_defer_foreign_keys.nil?
               execute("PRAGMA defer_foreign_keys = #{old_defer_foreign_keys}")
             end
             execute("PRAGMA foreign_keys = #{old_foreign_keys}")
