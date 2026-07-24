@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   pull_request:
-    branches: [master]
 
 jobs:
   test:
@@ -13,16 +12,11 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["3.2", "3.3", "3.4"]
-        config:
-          - name: wal
-            env:
-              TURSO_TEST_JOURNAL_MODE: wal
-          - name: mvcc
-            env:
-              TURSO_TEST_JOURNAL_MODE: mvcc
-          - name: generated_columns
-            env:
-              TURSO_TEST_EXPERIMENTAL_FEATURES: generated_columns
+        mode: ["wal", "mvcc"]
+        features: ["index_method", "generated_columns"]
+    env:
+      TURSO_TEST_JOURNAL_MODE: ${{ matrix.mode }}
+      TURSO_TEST_EXPERIMENTAL_FEATURES: ${{ matrix.features }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,12 +27,12 @@ jobs:
           repository: bendangelo/turso
           path: turso
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
-      - name: Run tests (${{ matrix.config.name }} / Ruby ${{ matrix.ruby }})
-        env: ${{ matrix.config.env }}
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
         run: bundle exec rake test
