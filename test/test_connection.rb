@@ -63,4 +63,9 @@ class TestConnection < Minitest::Test
     row = conn.query("SELECT active FROM users").first
     assert_equal 1, row["active"]
   end
+
+  def test_ar_connection_uses_turso_connection
+    conn = Turso::AR::Connection.new(database: ":memory:")
+    assert_kind_of Turso::Connection, conn.raw_connection
+  end
 end
