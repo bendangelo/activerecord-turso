@@ -41,9 +41,14 @@ class TestErrorTranslation < Minitest::Test
     end
   end
 
-  def test_not_null_violation_raises_statement_invalid
+  def test_not_null_violation_raises_not_null_violation
     assert_raises(ActiveRecord::NotNullViolation) do
       ActiveRecord::Base.connection.execute("INSERT INTO unique_records (code) VALUES (NULL)")
     end
+  end
+
+  def test_busy_error_is_mapped_as_busy_error_not_deadlocked
+    assert ActiveRecordTurso::BusyError < ActiveRecord::StatementInvalid
+    assert ActiveRecordTurso::Error < ActiveRecord::StatementInvalid
   end
 end

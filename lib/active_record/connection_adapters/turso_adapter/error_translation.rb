@@ -14,7 +14,7 @@ module ActiveRecord
           when ::Turso::BusySnapshotException
             ActiveRecord::SerializationFailure.new(message, sql: sql, binds: binds)
           when ::Turso::BusyException
-            ActiveRecord::Deadlocked.new(message, sql: sql, binds: binds)
+            ActiveRecordTurso::BusyError.new(message, sql: sql, binds: binds)
           when ::Turso::ReadonlyException
             ActiveRecord::ReadOnlyRecord.new(message, sql: sql, binds: binds)
           when ::Turso::IoException, ::Turso::CorruptException
@@ -38,6 +38,8 @@ module ActiveRecord
             ActiveRecord::InvalidForeignKey.new(message, sql: sql, binds: binds)
           when /unique constraint|primary key/i
             ActiveRecord::RecordNotUnique.new(message, sql: sql, binds: binds)
+          when /NOT NULL|cannot be NULL/i
+            ActiveRecord::NotNullViolation.new(message, sql: sql, binds: binds)
           else
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
           end
