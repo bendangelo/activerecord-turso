@@ -4,12 +4,12 @@ ActiveRecord adapter for [Turso](https://turso.tech) (SQLite compatible db).
 
 ## Status
 
-This adapter is under **active** development. It can run basic ActiveRecord operations against Turso today, but several production features are still being hardened. See [Limitations and Risks](#limitations-and-risks) before using it in production.
+Production ready for ActiveRecord 8.1 applications. The underlying `turso` gem releases the GVL during blocking operations, supports fiber-aware connection ownership, and uses native batch execution.
 
 ## Requirements
 
 - Ruby >= 3.2
-- ActiveRecord >= 8.0, < 8.2
+- ActiveRecord ~> 8.1.0
 - The `turso` Ruby gem
 
 ## Runtime dependencies
@@ -51,7 +51,9 @@ end
 Post.create!(title: "Hello", body: "World", published: true)
 ```
 
-## Recommended production configuration
+## Configuration
+
+### Recommended production configuration
 
 ```yaml
 production:
@@ -64,6 +66,23 @@ production:
   query_timeout: 30000
   experimental_features: "index_method"
 ```
+
+### Connection options
+
+| Option | Description | Default |
+|---|---|---|
+| `database` | Path to the SQLite database file | Required |
+| `journal_mode` | Journal mode (`wal`, `mvcc`, `delete`, etc.) | WAL |
+| `pool` | Connection pool size | 5 |
+| `timeout` | Busy timeout in milliseconds | 5000 |
+| `busy_timeout` | Busy timeout in milliseconds (overrides `timeout`) | 5000 |
+| `query_timeout` | Query timeout in milliseconds | 30000 |
+| `experimental_features` | Comma-separated experimental features (`index_method`, `generated_columns`) | None |
+| `statement_limit` | Maximum number of cached prepared statements | 1000 |
+
+### `query_timeout` and `interrupt`
+
+The adapter exposes `query_timeout=` to set a maximum execution time for queries. When a query exceeds this timeout, the Turso engine interrupts the operation and raises `ActiveRecord::QueryCanceled`. Use `interrupt` to cancel a running query from another thread.
 
 ### MVCC / BEGIN CONCURRENT (experimental)
 
@@ -168,9 +187,9 @@ The following limitations apply to the current implementation. Read this section
 
 The adapter builds column type maps from `column_decltype` metadata. This works for most column definitions but may not capture type information for computed expressions or subquery columns.
 
-### 2. Batch SQL execution uses a simple string splitter
+### 2. Batch SQL execution uses the Turso native batch API
 
-The adapter's batch execution path splits multi-statement SQL on semicolons. This means SQL containing semicolons inside string literals, triggers, or stored expressions may be split incorrectly. Avoid relying on multi-statement strings other than simple schema dumps.
+The adapter's batch execution path uses the Turso native batch API (`execute_batch`), which correctly handles semicolons inside string literals, triggers, and stored expressions.
 
 ### 3. MVCC requires opt-in and has ActiveRecord compatibility caveats
 
@@ -187,9 +206,9 @@ Only use `transaction(concurrent: true)` after testing it under your app's concu
 
 The adapter uses a bounded statement pool with a default limit inherited from Rails (typically `1000`). Statements are evicted with an LRU policy and finalized against the underlying Turso connection. Set `statement_limit` in `database.yml` to tune the pool size.
 
-### 5. ActiveRecord 8.0 support is CI-tested, not locally tested
+### 5. Only ActiveRecord 8.1 is supported
 
-Only ActiveRecord 8.1 is installed in the primary development environment. ActiveRecord 8.0 compatibility is validated through CI. If you run into 8.0-specific issues, please report them.
+The adapter is pinned to ActiveRecord `~> 8.1.0`.
 
 ### 6. INSERT RETURNING is disabled (not supported by Turso)
 
@@ -200,9 +219,9 @@ The underlying Turso SQLite build does not support `INSERT ... RETURNING` syntax
 - Transaction isolation levels other than the default are reported as unsupported (`supports_transaction_isolation?` returns `false`) because Turso remote connections do not provide shared-cache read-uncommitted semantics.
 - `insert_on_conflict` is enabled only when the reported SQLite version is `>= 3.24.0`.
 
-### 8. `execute_batch` in the underlying bindings is a Ruby-side fallback
+### 8. `execute_batch` uses the Turso native batch API
 
-The `turso` gem provides `DB#execute_batch` as a convenience that splits and executes statements one by one. It does not use a native batch API, so it carries the same semicolon-splitting risk as item 2 above.
+The `turso` gem's `execute_batch` uses the Turso native batch API (`prepare_first`/`execute` loop), correctly handling edge cases like semicolons in string literals and triggers.
 
 ## Development
 
