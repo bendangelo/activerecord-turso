@@ -14,6 +14,7 @@ class ExperimentalFeatureTest < Minitest::Test
 
   def test_fts_index_method_works_when_enabled
     skip unless ActiveRecordTursoTest.experimental_features.include?("index_method")
+    skip "FTS indexes are not supported in MVCC mode" if ActiveRecordTursoTest.journal_mode == "mvcc"
 
     connection = ActiveRecord::Base.connection
     connection.create_table(:feature_posts, force: true) do |t|
