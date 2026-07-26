@@ -5,14 +5,17 @@ require "active_record/tasks/database_tasks"
 module ActiveRecord
   module Tasks
     class TursoDatabaseTasks < SQLiteDatabaseTasks
+      def initialize(db_config, root = nil)
+        @configuration = db_config
+      end
+
       def create
-        establish_connection(configuration)
         path = configuration.database
         return if path == ":memory:"
 
         FileUtils.mkdir_p(File.dirname(path))
-        ActiveRecord::Base.establish_connection(configuration)
-        connection
+        establish_connection(configuration)
+        connection.execute("SELECT 1")
       end
 
       def drop
@@ -94,7 +97,7 @@ module ActiveRecord
       def structure_load(filename, extra_flags)
         establish_connection(configuration)
         sql = File.read(filename)
-        connection.execute_batch(sql)
+        ActiveRecord::Base.connection.raw_connection.execute_batch(sql)
       end
 
       private
@@ -110,6 +113,7 @@ module ActiveRecord
       def establish_connection(config)
         @configuration = config
         ActiveRecord::Base.establish_connection(config)
+        ActiveRecord::Base.connection.connect!
       end
 
       def disconnect!
