@@ -5,7 +5,7 @@ require_relative "lib/activerecord-turso/version"
 Gem::Specification.new do |spec|
   spec.name = "activerecord-turso"
   spec.version = ActiveRecordTurso::VERSION
-  spec.summary = "ActiveRecord adapter for Turso"
+  spec.summary = "Embedded ActiveRecord adapter for Turso (SQLite-compatible)"
   spec.authors = ["Ben D'Angelo"]
   spec.license = "MIT"
   spec.files = Dir["lib/**/*", "README.md"]

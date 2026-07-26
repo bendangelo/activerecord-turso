@@ -4,7 +4,7 @@ ActiveRecord adapter for [Turso](https://turso.tech) (SQLite compatible db).
 
 ## Status
 
-Production ready for ActiveRecord 8.1 applications. The underlying `turso` gem releases the GVL during blocking operations, supports fiber-aware connection ownership, and uses native batch execution.
+Production ready for **embedded/local** ActiveRecord 8.1 applications using the Turso SQLite-compatible database engine. This adapter does **not** support remote `libsql://` URLs or Turso cloud authentication. The underlying `turso` gem releases the GVL during blocking operations, supports fiber-aware connection ownership, and uses native batch execution.
 
 ## Requirements
 
