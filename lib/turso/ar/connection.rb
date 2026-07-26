@@ -19,7 +19,10 @@ module Turso
           busy_timeout: config[:busy_timeout] || config[:timeout] || DEFAULT_BUSY_TIMEOUT_MS,
           query_timeout: config[:query_timeout] || DEFAULT_QUERY_TIMEOUT_MS
         }
-        db_opts[:experimental_features] = config[:experimental_features] if config[:experimental_features]
+        if config[:experimental_features]
+          features = Array(config[:experimental_features]).map(&:to_s).reject(&:empty?)
+          db_opts[:experimental_features] = features.join(",") unless features.empty?
+        end
         database = ::Turso::Database.new(config[:database].to_s, **db_opts)
         @db = database.connection
         @db.busy_timeout = db_opts[:busy_timeout]
