@@ -8,7 +8,8 @@ module Turso
       extend Forwardable
 
       def_delegators :@db, :close, :closed?, :changes, :total_changes,
-                     :last_insert_rowid, :prepare, :interrupt, :busy_timeout=
+                     :last_insert_rowid, :prepare, :interrupt, :busy_timeout=,
+                     :query_timeout, :query_timeout=
 
       DEFAULT_BUSY_TIMEOUT_MS = 5000
       DEFAULT_QUERY_TIMEOUT_MS = 30_000

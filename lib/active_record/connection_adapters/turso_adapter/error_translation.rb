@@ -5,7 +5,7 @@ module ActiveRecord
     class TursoAdapter < SQLite3Adapter
       module ErrorTranslation
         def translate_exception(exception, message:, sql:, binds:)
-          cause = exception.cause
+          cause = exception.cause || exception
           case cause
           when ::Turso::ConstraintException
             translate_constraint_error(message, sql, binds)

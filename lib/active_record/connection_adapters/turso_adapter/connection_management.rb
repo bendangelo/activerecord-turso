@@ -65,7 +65,8 @@ module ActiveRecord
           timeout = @config[:busy_timeout] || @config[:timeout] || 5000
           @raw_connection.busy_timeout = timeout
 
-
+          query_timeout = @config[:query_timeout] || 30_000
+          @raw_connection.query_timeout = query_timeout
         end
       end
     end
