@@ -114,6 +114,7 @@ development:
 - `transaction(concurrent: true)` requires the same database connection to be held for the entire retry loop. Rails' connection pool may reap the connection between retries, which can silently break MVCC semantics. Use this only when you understand the pooling behavior of your app.
 - `lock!`, `with_lock`, and `lock_version` are not meaningful under MVCC. Do not use them inside concurrent transactions.
 - If the retry limit is exhausted, the conflict is raised as `ActiveRecord::StatementInvalid`. You must handle it in application code.
+- Normal ActiveRecord model persistence (`create!`, `save!`, `update!`, `touch`) is **not supported** inside a concurrent transaction because ActiveRecord opens its own internal transaction for each model change. Use raw SQL (`execute`, `exec_query`) or bulk operations (`insert_all`, `update_all`, `update_columns`) instead.
 
 ### Full-text search (Tantivy)
 
