@@ -1,0 +1,8 @@
+# test/rails_conformance/config.yml
+connections:
+  turso:
+    arunit:
+      adapter: turso
+      database: tmp/conformance.sqlite3
+      timeout: 5000
+      journal_mode: wal

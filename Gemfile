@@ -20,5 +20,6 @@ end
 
 group :test do
   gem "minitest-around"
+  gem "minitest-mock"
   gem "sqlite3"
 end
