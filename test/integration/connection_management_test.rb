@@ -80,4 +80,23 @@ class TestConnectionManagement < Minitest::Test
     assert conn.active?
     assert_equal 1, conn.query_value("PRAGMA foreign_keys")
   end
+
+  def test_closed_underlying_connection_is_detected
+    conn = ActiveRecord::Base.connection
+    conn.raw_connection.close
+
+    refute conn.active?
+    refute conn.connected?
+  end
+
+  def test_query_reconnects_after_underlying_connection_is_closed
+    ConnectionRecord.create!(name: "pre-close")
+
+    conn = ActiveRecord::Base.connection
+    conn.raw_connection.close
+
+    record = ConnectionRecord.first
+    assert_equal "pre-close", record.name
+    assert conn.active?
+  end
 end

@@ -17,10 +17,20 @@ module ActiveRecord
         end
 
         def active?
-          return false unless @raw_connection
-          !@raw_connection.closed?
+          connected?
+        end
+
+        def connected?
+          !(@raw_connection.nil? || @raw_connection.closed?)
         rescue ::Turso::Error
           false
+        end
+
+        def disconnect!
+          super
+
+          @raw_connection&.close
+          @raw_connection = nil
         end
 
         def reconnect!(**)
@@ -28,13 +38,6 @@ module ActiveRecord
             disconnect!
             @raw_connection = self.class.new_client(@config)
             configure_connection
-          end
-        end
-
-        def disconnect!
-          @lock.synchronize do
-            @raw_connection&.close
-            @raw_connection = nil
           end
         end
 

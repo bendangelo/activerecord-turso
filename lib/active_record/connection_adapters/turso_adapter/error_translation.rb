@@ -5,8 +5,7 @@ module ActiveRecord
     class TursoAdapter < SQLite3Adapter
       module ErrorTranslation
         def translate_exception(exception, message:, sql:, binds:)
-          cause = exception.cause || exception
-          case cause
+          case exception
           when ::Turso::ConstraintException
             translate_constraint_error(message, sql, binds)
           when ::Turso::NotADatabaseException
@@ -25,9 +24,19 @@ module ActiveRecord
             ActiveRecord::QueryCanceled.new(message, sql: sql, binds: binds)
           when ::Turso::MisuseException
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
+          when ::Turso::Exception
+            ActiveRecord::ConnectionFailed.new(message, connection_pool: pool)
           else
             super
           end
+        end
+
+        def retryable_connection_error?(exception)
+          super || exception.is_a?(::Turso::Exception)
+        end
+
+        def retryable_query_error?(exception)
+          super || exception.is_a?(::Turso::Exception)
         end
 
         private

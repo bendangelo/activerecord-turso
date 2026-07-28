@@ -24,8 +24,8 @@ module Turso
           features = Array(config[:experimental_features]).map(&:to_s).reject(&:empty?)
           db_opts[:experimental_features] = features.join(",") unless features.empty?
         end
-        database = ::Turso::Database.new(config[:database].to_s, **db_opts)
-        @db = database.connection
+        @database = ::Turso::Database.new(config[:database].to_s, **db_opts)
+        @db = @database.connection
         @db.busy_timeout = db_opts[:busy_timeout]
         @db.query_timeout = db_opts[:query_timeout]
       end
