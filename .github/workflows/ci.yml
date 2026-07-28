@@ -36,3 +36,26 @@ jobs:
 
       - name: Run tests
         run: bundle exec rake test
+
+  conformance:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: bendangelo/turso
+          path: turso
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0.5"
+          bundler-cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Run conformance suite
+        run: bundle exec rake test:conformance

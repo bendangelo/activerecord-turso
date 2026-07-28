@@ -14,7 +14,7 @@ Production ready for **embedded/local** ActiveRecord 8.1 applications using the 
 
 ## Runtime dependencies
 
-This adapter uses the `turso` gem and does **not** require the `sqlite3` Ruby gem at runtime.
+This adapter uses the `turso` gem and does **not** require the `sqlite3` Ruby gem at runtime. The `sqlite3` gem is used only in the Rails conformance test harness.
 
 ## Installation
 
@@ -246,6 +246,12 @@ TURSO_TEST_EXPERIMENTAL_FEATURES=generated_columns bundle exec rake test
 ```
 
 The CI workflow in `.github/workflows/ci.yml` runs all three configurations automatically.
+
+Run the Rails sqlite3 adapter conformance suite:
+
+```bash
+bundle exec rake test:conformance
+```
 
 ## License
 
