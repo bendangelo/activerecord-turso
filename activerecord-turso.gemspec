@@ -11,7 +11,6 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*", "README.md"]
   spec.required_ruby_version = ">= 3.2.0"
   spec.add_dependency "activerecord", "~> 8.1.0"
-  spec.add_dependency "sqlite3", "~> 2.6"
   spec.add_dependency "turso", "~> 0.1"
 
   spec.add_development_dependency "irb"

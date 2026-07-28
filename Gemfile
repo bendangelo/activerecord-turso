@@ -18,8 +18,7 @@ else
   gem "turso"
 end
 
-gem "sqlite3"
-
 group :test do
   gem "minitest-around"
+  gem "sqlite3"
 end
