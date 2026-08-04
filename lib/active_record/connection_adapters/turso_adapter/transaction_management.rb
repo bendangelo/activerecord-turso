@@ -97,7 +97,9 @@ module ActiveRecord
 
         def rollback_if_active
           return unless @raw_connection && !@raw_connection.closed?
-          @raw_connection.execute("ROLLBACK") rescue nil
+          @raw_connection.execute("ROLLBACK")
+        rescue ::Turso::Error
+          disconnect! rescue nil
         end
 
         def backoff(base_delay_ms, retries)

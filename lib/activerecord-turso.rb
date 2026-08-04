@@ -17,3 +17,7 @@ require "active_record/tasks/database_tasks"
 require_relative "active_record/tasks/turso_database_tasks"
 
 ActiveRecord::Tasks::DatabaseTasks.register_task(/turso/, "ActiveRecord::Tasks::TursoDatabaseTasks")
+
+at_exit do
+  ActiveRecord::Base.connection_pool&.disconnect! rescue nil
+end

@@ -29,7 +29,13 @@ module ActiveRecord
         def disconnect!
           super
 
-          @raw_connection&.close
+          if @raw_connection && !@raw_connection.closed?
+            begin
+              @raw_connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            rescue ::Turso::Error
+            end
+            @raw_connection.close
+          end
           @raw_connection = nil
         end
 
@@ -64,6 +70,9 @@ module ActiveRecord
           end
 
           execute("PRAGMA foreign_keys = ON")
+
+          autocheckpoint = @config.fetch(:wal_autocheckpoint, 1000)
+          execute("PRAGMA wal_autocheckpoint = #{autocheckpoint.to_i}")
 
           timeout = @config[:busy_timeout] || @config[:timeout] || 5000
           @raw_connection.busy_timeout = timeout

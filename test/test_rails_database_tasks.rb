@@ -42,7 +42,6 @@ class RailsDatabaseTasksTest < Minitest::Test
   end
 
   def test_structure_dump_and_load_round_trip
-    path = ActiveRecordTursoTest.database_path
     dump = File.join(ActiveRecordTursoTest::TMP, "structure.sql")
 
     ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config)

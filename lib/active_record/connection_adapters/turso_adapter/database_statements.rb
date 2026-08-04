@@ -69,6 +69,10 @@ module ActiveRecord
               type_map = build_type_map(stmt)
               ActiveRecord::Result.new(columns, rows, type_map, affected_rows: affected_rows)
             end
+          rescue
+            @statements.delete(sql) if prepare
+            stmt.close
+            raise
           ensure
             stmt.close unless prepare
           end
