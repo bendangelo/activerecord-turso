@@ -66,6 +66,37 @@ class RailsDatabaseTasksTest < Minitest::Test
     FileUtils.rm_f(dump)
   end
 
+  def test_structure_dump_and_load_round_trip_with_fts_index
+    dump = File.join(ActiveRecordTursoTest::TMP, "fts_structure.sql")
+
+    ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config)
+    connection = ActiveRecord::Base.connection
+    connection.create_table(:messages) { |table| table.text :content, null: false }
+    connection.add_fts_index(:messages, :content, tokenizer: :ngram)
+    ActiveRecord::Base.connection_pool.disconnect!
+
+    task = build_task
+    task.structure_dump(dump, nil)
+
+    sql = File.read(dump)
+    assert_match(/CREATE INDEX .* USING fts \(content\)/, sql)
+    assert_match(/tokenizer = 'ngram'/, sql)
+    refute_match(/__turso_internal_/, sql)
+
+    task.drop
+    task.structure_load(dump, nil)
+
+    ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config)
+    connection = ActiveRecord::Base.connection
+    connection.execute("INSERT INTO messages (content) VALUES ('日本語の部分一致検索')")
+
+    assert_equal 1, connection.select_value(<<~SQL)
+      SELECT COUNT(*) FROM messages WHERE fts_match(content, '部分一致')
+    SQL
+  ensure
+    FileUtils.rm_f(dump)
+  end
+
   def test_charset
     task = build_task
     assert_equal "UTF-8", task.charset

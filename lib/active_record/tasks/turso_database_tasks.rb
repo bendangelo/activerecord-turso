@@ -65,6 +65,7 @@ module ActiveRecord
           SELECT name FROM sqlite_master
           WHERE type = 'index'
             AND name NOT LIKE 'sqlite_%'
+            AND name NOT LIKE '__turso_internal_%'
             AND sql IS NOT NULL
           ORDER BY name
         SQL
