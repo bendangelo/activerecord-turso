@@ -6,6 +6,7 @@ module ActiveRecord
       module ConnectionManagement
         def self.included(base)
           base.extend(ClassMethods)
+          base.set_callback :checkout, :before, :reconnect_for_execution_context
         end
 
         module ClassMethods
@@ -79,6 +80,15 @@ module ActiveRecord
 
           query_timeout = @config[:query_timeout] || 30_000
           @raw_connection.query_timeout = query_timeout
+        end
+
+        private
+
+        def reconnect_for_execution_context
+          return unless @raw_connection
+          return if @raw_connection.owned_by_current_execution_context?
+
+          reconnect!
         end
       end
     end

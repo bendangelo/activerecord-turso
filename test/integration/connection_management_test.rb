@@ -74,6 +74,31 @@ class TestConnectionManagement < Minitest::Test
     assert_equal 3, ConnectionRecord.count
   end
 
+  def test_checked_in_connection_can_be_reused_by_another_thread
+    ActiveRecord::Base.establish_connection(ActiveRecordTursoTest.base_config.merge(pool: 1))
+    pool = ActiveRecord::Base.connection_pool
+
+    original_connection = pool.checkout
+    original_connection.execute("INSERT INTO connection_records (name) VALUES ('main-thread')")
+    original_adapter_id = original_connection.object_id
+    original_raw_connection_id = original_connection.raw_connection.object_id
+    pool.checkin(original_connection)
+
+    result = Thread.new do
+      pool.with_connection do |connection|
+        [
+          connection.object_id,
+          connection.raw_connection.object_id,
+          connection.query_value("SELECT name FROM connection_records")
+        ]
+      end
+    end.value
+
+    assert_equal original_adapter_id, result[0]
+    refute_equal original_raw_connection_id, result[1]
+    assert_equal "main-thread", result[2]
+  end
+
   def test_reconnect_restores_foreign_keys_pragma
     conn = ActiveRecord::Base.connection
     conn.reconnect!
