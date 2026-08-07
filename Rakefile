@@ -21,4 +21,12 @@ namespace :test do
   end
 end
 
+namespace :bench do
+  desc "Run FTS benchmark (Turso Tantivy vs SQLite FTS5)"
+  task :fts do
+    Dir.chdir(File.dirname(__FILE__))
+    sh "ruby -Ilib bench/fts_benchmark.rb"
+  end
+end
+
 task default: :test

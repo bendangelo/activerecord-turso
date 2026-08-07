@@ -22,4 +22,5 @@ group :test do
   gem "minitest-around"
   gem "minitest-mock"
   gem "sqlite3"
+  gem "benchmark-ips", "~> 2.13", require: false
 end
