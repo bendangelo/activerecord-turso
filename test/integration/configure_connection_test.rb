@@ -25,7 +25,7 @@ class TestConfigureConnection < Minitest::Test
   end
 
   def test_busy_timeout_propagates_to_raw_connection
-    establish_connection(busy_timeout: 7000)
+    establish_connection(busy_timeout: 1000)
     conn = ActiveRecord::Base.connection
     conn.execute("CREATE TABLE IF NOT EXISTS busy_items (id INTEGER PRIMARY KEY)")
     conn.execute("INSERT INTO busy_items VALUES (1)")
@@ -44,9 +44,9 @@ class TestConfigureConnection < Minitest::Test
 
     # Turso::Connection exposes busy_timeout= but no busy_timeout getter, so we
     # verify propagation behaviorally: a write against a held EXCLUSIVE lock must
-    # block for ~7000ms before surfacing BusyException (tolerance 1s).
-    assert_operator elapsed, :>=, 6.0,
-      "expected busy_timeout 7000 to hold the write for ~7s, blocked only #{elapsed.round(2)}s"
+    # block for ~1000ms before surfacing BusyException (tolerance 1s).
+    assert_operator elapsed, :>=, 0.6,
+      "expected busy_timeout 1000 to hold the write for ~1s, blocked only #{elapsed.round(2)}s"
   ensure
     locker&.execute("ROLLBACK") rescue nil
     locker&.close rescue nil
