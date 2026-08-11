@@ -23,17 +23,17 @@ class TestInterrupt < Minitest::Test
     native = conn.raw_connection.instance_variable_get(:@db).instance_variable_get(:@native)
 
     interrupt_thread = Thread.new do
-      sleep(0.01)
+      sleep(0.05)
       native.interrupt
     end
 
     # execute_batch releases the GVL while running, so the interrupt thread can
     # acquire it and cancel the long-running query.
-    err = assert_raises(ActiveRecord::QueryCanceled, ActiveRecord::StatementInvalid, ::Turso::InterruptException) do
+    err = assert_raises(::Turso::InterruptException) do
       conn.raw_connection.execute_batch("SELECT COUNT(*) FROM generate_series(1, 100000000)")
     end
 
-    assert_match(/interrupt|query canceled|cancelled/i, err.message)
+    assert_match(/interrupt/i, err.message)
   ensure
     interrupt_thread&.join
   end
