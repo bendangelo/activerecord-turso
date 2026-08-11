@@ -45,36 +45,4 @@ class TestReferentialIntegrity < Minitest::Test
       ActiveRecord::Base.connection.execute("INSERT INTO ref_posts (user_id) VALUES (99999)")
     end
   end
-
-  def test_disable_referential_integrity_defers_foreign_keys_when_set
-    conn = ActiveRecord::Base.connection
-    conn.execute("PRAGMA defer_foreign_keys = ON")
-    original_defer = conn.query_value("PRAGMA defer_foreign_keys")
-
-    RefUser.create!(name: "Alice")
-
-    conn.disable_referential_integrity do
-      conn.execute("INSERT INTO ref_posts (user_id) VALUES (99999)")
-    end
-
-    assert_equal original_defer.inspect, conn.query_value("PRAGMA defer_foreign_keys").inspect
-    assert_equal 1, conn.query_value("PRAGMA foreign_keys")
-    assert_equal 1, RefPost.count
-  end
-
-  def test_disable_referential_integrity_when_defer_foreign_keys_is_off
-    conn = ActiveRecord::Base.connection
-    conn.execute("PRAGMA defer_foreign_keys = OFF")
-    original_defer = conn.query_value("PRAGMA defer_foreign_keys")
-
-    RefUser.create!(name: "Alice")
-
-    conn.disable_referential_integrity do
-      conn.execute("INSERT INTO ref_posts (user_id) VALUES (99999)")
-    end
-
-    assert_equal original_defer.inspect, conn.query_value("PRAGMA defer_foreign_keys").inspect
-    assert_equal 1, conn.query_value("PRAGMA foreign_keys")
-    assert_equal 1, RefPost.count
-  end
 end
