@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.2
+
+- Fix pooled connection reuse across threads.
+- Fix FTS structure dump round trips.
+- Fix bulk insert bug.
+- Add Rails sqlite3 conformance test harness and CI job.
+- Remove sqlite3 runtime dependency; keep it test-only.
+- Add FTS benchmarking.
+
 ## 0.3.0
 
 - Pin to ActiveRecord 8.1.
