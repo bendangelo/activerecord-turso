@@ -9,13 +9,13 @@ module ActiveRecord
           when ::Turso::ConstraintException
             translate_constraint_error(message, sql, binds)
           when ::Turso::NotADatabaseException
-            ActiveRecord::NoDatabaseError.new(message, sql: sql, binds: binds)
+            ActiveRecord::NoDatabaseError.new(message, connection_pool: pool)
           when ::Turso::BusySnapshotException
             ActiveRecord::SerializationFailure.new(message, sql: sql, binds: binds)
           when ::Turso::BusyException
             ActiveRecordTurso::BusyError.new(message, sql: sql, binds: binds)
           when ::Turso::ReadonlyException
-            ActiveRecord::ReadOnlyRecord.new(message, sql: sql, binds: binds)
+            ActiveRecord::ReadOnlyRecord.new(message)
           when ::Turso::IoException, ::Turso::CorruptException
             ActiveRecord::StatementInvalid.new(message, sql: sql, binds: binds)
           when ::Turso::DatabaseFullException

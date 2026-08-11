@@ -43,8 +43,12 @@ module ActiveRecord
         def reconnect!(**)
           @lock.synchronize do
             disconnect!
-            @raw_connection = self.class.new_client(@config)
-            configure_connection
+            begin
+              @raw_connection = self.class.new_client(@config)
+              configure_connection
+            rescue => original_exception
+              raise translate_exception_class(original_exception, nil, nil)
+            end
           end
         end
 
