@@ -16,6 +16,7 @@ module Turso
 
       def initialize(config)
         @config = config
+        @owner = owner_token
         db_opts = {
           busy_timeout: config[:busy_timeout] || config[:timeout] || DEFAULT_BUSY_TIMEOUT_MS,
           query_timeout: config[:query_timeout] || DEFAULT_QUERY_TIMEOUT_MS
@@ -38,6 +39,10 @@ module Turso
         !@db.closed?
       end
 
+      def owned_by_current_execution_context?
+        @owner == owner_token
+      end
+
       def disconnect!
         @db.close unless @db.closed?
       end
@@ -56,6 +61,10 @@ module Turso
       end
 
       private
+
+      def owner_token
+        [Thread.current.object_id, Fiber.current.object_id]
+      end
 
       def normalize_binds(binds)
         binds.map do |value|
